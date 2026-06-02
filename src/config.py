@@ -83,10 +83,17 @@ REVIEW_PATTERNS = [
     ]
 ]
 
-# ── Title must contain at least one of these ──────────────────────────────────
+# ── Title must match — requires explicit digital-product qualifier ─────────────
+# Rejects: fashion/textile/technical/graphic/packaging/freelance/apparel designers
 TITLE_KEYWORDS = re.compile(
-    r"\b(product|ux|ui|user\s+experience|experience|interaction|visual)\s+(designer?|design)\b"
-    r"|\b(designer?)\b",
+    r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|visual|brand|motion|content|growth|ai|founding|staff|principal|senior|lead|associate\s+product)\s+designer\b"
+    r"|\b(ux|ui|product|experience|interaction)\s+design\b",
+    re.IGNORECASE,
+)
+
+TITLE_HARD_OUT = re.compile(
+    r"\b(fashion|textile|apparel|packaging|graphic|technical|interior|industrial|landscape|game|jewelry|freelance|presentation|powerpoint|instructional|curriculum|web\s+graphic)\s+designer\b"
+    r"|\bdesigner\s*([-–]\s*)?(handbag|apparel|sleep|knit|bottom|dress|outerwear)\b",
     re.IGNORECASE,
 )
 

@@ -13,9 +13,11 @@ def classify(job: dict) -> tuple[Bucket, str]:
     company = job["company"].lower().strip()
     text = _text(job)
 
-    # 1. title must match design roles
+    # 1. title must match digital design roles
+    if config.TITLE_HARD_OUT.search(title):
+        return "SKIP", "title matched hard-out (fashion/graphic/non-digital designer)"
     if not config.TITLE_KEYWORDS.search(title):
-        return "SKIP", "title not design role"
+        return "SKIP", "title not digital design role"
 
     # 2. hard-out patterns → SKIP
     for pat in config.HARD_OUT_PATTERNS:

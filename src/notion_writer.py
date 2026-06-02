@@ -29,10 +29,10 @@ def add_row(job: dict, bucket: str, reason: str, everify: Optional[bool]) -> Non
     date_str = datetime.now(timezone.utc).date().isoformat()
 
     props: dict = {
-        "Job Title": {
+        "Job title": {
             "title": [{"text": {"content": job["title"][:200]}}]
         },
-        "Company": {
+        "Company ": {
             "rich_text": [{"text": {"content": job["company"][:100]}}]
         },
         "Link": {
@@ -41,16 +41,16 @@ def add_row(job: dict, bucket: str, reason: str, everify: Optional[bool]) -> Non
         "Location": {
             "rich_text": [{"text": {"content": location}}]
         },
-        "E-Verify": {
+        "E-verify": {
             "select": {"name": ev_label}
         },
         "Bucket": {
             "select": {"name": bucket}
         },
-        "Why Flagged": {
+        "Why flagged": {
             "rich_text": [{"text": {"content": why}}]
         },
-        "Date Found": {
+        "Date found": {
             "date": {"start": date_str}
         },
         "Applied": {
