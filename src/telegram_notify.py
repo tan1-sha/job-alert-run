@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import requests
 
@@ -7,26 +6,18 @@ from src import config
 
 log = logging.getLogger(__name__)
 
-_API = f"https://api.telegram.org/bot{{}}/sendMessage"
-
 
 def _api_url() -> str:
     return f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}/sendMessage"
 
 
-def send_strong(job: dict, everify: Optional[bool], reason: str) -> None:
-    from src.everify import enrolled_label
-
-    ev = enrolled_label(everify)
-    ev_icon = "✅" if everify else ("❓" if everify is None else "")
-
+def send_strong(job: dict, reason: str) -> None:
     lines = [
         f"🔥 *STRONG MATCH*",
         f"*{_escape(job['title'])}*",
         f"🏢 {_escape(job['company'])}",
         f"📍 {_escape(job['location'] or 'Not specified')}",
-        f"E\\-Verify: {ev_icon} {ev}",
-        f"📌 {reason}",
+        f"📌 {_escape(reason)}",
         f"[View Job]({job['url']})",
     ]
     text = "\n".join(lines)

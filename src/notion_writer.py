@@ -18,12 +18,7 @@ def _get_client() -> Client:
     return _client
 
 
-def add_row(job: dict, bucket: str, reason: str, everify: Optional[bool]) -> None:
-    from src.everify import enrolled_label
-
-    ev_label = enrolled_label(everify)
-
-    # Truncate location/reason to Notion's 2000-char rich_text limit
+def add_row(job: dict, bucket: str, reason: str) -> None:
     location = job["location"][:200]
     why = f"[{bucket}] {reason}"[:200]
     date_str = datetime.now(timezone.utc).date().isoformat()
@@ -44,9 +39,7 @@ def add_row(job: dict, bucket: str, reason: str, everify: Optional[bool]) -> Non
         "Location": {
             "rich_text": [{"text": {"content": location}}]
         },
-        "E-verify": {
-            "select": {"name": ev_label}
-        },
+        # E-verify intentionally omitted — fill manually when researching company
         "Bucket": {
             "select": {"name": bucket}
         },

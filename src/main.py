@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src import config, everify, fetcher, filter as filt, notion_writer, telegram_notify
+from src import config, fetcher, filter as filt, notion_writer, telegram_notify
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,13 +55,11 @@ def run() -> None:
             seen_ids.add(job["id"])
             continue
 
-        ev = everify.lookup(job["company"])
-
         if bucket == "STRONG":
-            telegram_notify.send_strong(job, ev, reason)
-            notion_writer.add_row(job, bucket, reason, ev)
+            telegram_notify.send_strong(job, reason)
+            notion_writer.add_row(job, bucket, reason)
         elif bucket == "REVIEW":
-            notion_writer.add_row(job, bucket, reason, ev)
+            notion_writer.add_row(job, bucket, reason)
 
         seen_ids.add(job["id"])
 
