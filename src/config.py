@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,22 +17,28 @@ SEARCH_TERMS = [
     "product designer",
     "ux designer",
     "ui designer",
-    "experience designer",
+    "interaction designer",
 ]
 
-LOCATIONS = ["San Francisco, CA", "New York, NY", "Seattle, WA", "Remote"]
+# Focus on US cities; "Remote" treated as US-based (most US boards default US remote)
+LOCATIONS = ["San Francisco, CA", "New York, NY", "Seattle, WA", "Austin, TX", "Remote"]
 
 RESULTS_PER_QUERY = 25   # per jobspy source per term
 HOURS_OLD         = 5    # only grab jobs posted in last 5h (run every 4h + buffer)
 
-# ── Priority companies (STRONG signal) ────────────────────────────────────────
+# ── Candidate profile (used for level + fit filtering) ───────────────────────
+# Entry-level new grad, 4 internships, BFA Interaction Design @ CCA May 2026
+# Strengths: fintech/platform UI, design systems, Figma, Framer, eng collaboration
+# On F-1 OPT from June 15 2026 — needs W-2 USA jobs
+
+# ── Priority companies → bonus STRONG signal ──────────────────────────────────
 PRIORITY_COMPANIES = {
     "apple", "google", "notion", "figma", "slack", "clay", "airtable",
     "retool", "youtube", "linear", "loom", "mercury", "stripe", "vercel",
-    "anthropic", "openai", "perplexity", "arc", "raycast", "cron",
-    "superhuman", "pitch", "craft", "miro", "framer", "webflow",
-    "github", "gitlab", "dropbox", "zoom", "asana", "intercom",
-    "brex", "ramp", "rippling", "lattice", "figma", "canva",
+    "anthropic", "openai", "perplexity", "arc", "raycast",
+    "superhuman", "pitch", "miro", "framer", "webflow",
+    "github", "dropbox", "zoom", "asana", "intercom",
+    "brex", "ramp", "rippling", "canva", "figma",
 }
 
 # ── ATS slugs to poll directly ────────────────────────────────────────────────
@@ -42,16 +49,14 @@ GREENHOUSE_SLUGS = [
 ]
 
 LEVER_SLUGS = [
-    "clay", "superhuman", "pitch", "craft", "raycast",
+    "clay", "superhuman", "pitch", "raycast",
 ]
 
 ASHBY_SLUGS = [
-    "linear", "mercury", "arc", "cron",
+    "linear", "mercury", "arc",
 ]
 
-# ── Hard-out patterns (SKIP) ──────────────────────────────────────────────────
-import re
-
+# ── Hard-out description patterns → SKIP ─────────────────────────────────────
 HARD_OUT_PATTERNS = [
     re.compile(p, re.IGNORECASE) for p in [
         r"must\s+be\s+(a\s+)?us\s+citizen",
@@ -71,7 +76,7 @@ HARD_OUT_PATTERNS = [
     ]
 ]
 
-# ── Review patterns (REVIEW bucket) ───────────────────────────────────────────
+# ── Review description patterns → REVIEW bucket ───────────────────────────────
 REVIEW_PATTERNS = [
     re.compile(p, re.IGNORECASE) for p in [
         r"without\s+sponsorship\s+now\s+or\s+in\s+the\s+future",
@@ -83,17 +88,57 @@ REVIEW_PATTERNS = [
     ]
 ]
 
-# ── Title must match — requires explicit digital-product qualifier ─────────────
-# Rejects: fashion/textile/technical/graphic/packaging/freelance/apparel designers
-TITLE_KEYWORDS = re.compile(
-    r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|visual|brand|motion|content|growth|ai|founding|staff|principal|senior|lead|associate\s+product)\s+designer\b"
+# ── Title: must match a digital/product design role ───────────────────────────
+# Requires explicit qualifier — plain "designer" alone is too broad
+TITLE_REQUIRED = re.compile(
+    r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|visual|content|growth|ai|associate)\s+designer\b"
     r"|\b(ux|ui|product|experience|interaction)\s+design\b",
     re.IGNORECASE,
 )
 
-TITLE_HARD_OUT = re.compile(
-    r"\b(fashion|textile|apparel|packaging|graphic|technical|interior|industrial|landscape|game|jewelry|freelance|presentation|powerpoint|instructional|curriculum|web\s+graphic)\s+designer\b"
-    r"|\bdesigner\s*([-–]\s*)?(handbag|apparel|sleep|knit|bottom|dress|outerwear)\b",
+# ── Title: seniority hard-out → too senior for entry-level candidate ──────────
+# Anchored to title start so "Staff UX Content Designer" and "Senior Product Designer"
+# both match regardless of what comes between the seniority word and "designer".
+# Does NOT block plain "Product Designer" (no modifier = open level, often entry-OK).
+TITLE_SENIORITY_BLOCK = re.compile(
+    # Title begins with seniority modifier (covers "Senior X Designer", "Staff UX Y Designer", etc.)
+    r"^\s*(senior|sr\.?|staff|principal|lead)\b"
+    # Management / leadership roles
+    r"|\b(head\s+of[\w\s]*design|director[\w\s]*design|design\s+director|design\s+manager|design\s+lead)\b"
+    r"|\b(ux|product|ui|experience)\s+(design\s+)?(director|manager|lead|head)\b"
+    r"|\bvp[,\s]+(of\s+)?(product\s+)?design\b",
+    re.IGNORECASE,
+)
+
+# ── Title: wrong role type hard-out ───────────────────────────────────────────
+TITLE_ROLE_BLOCK = re.compile(
+    r"\b(motion|graphic|brand|industrial|fashion|textile|apparel|packaging|interior|"
+    r"landscape|game|jewelry|photonics|technical|freelance|presentation|powerpoint|"
+    r"instructional|curriculum|web\s+graphic|performance\s+creative|slide)\s+designer\b"
+    r"|\bdesigner\s*([-–]\s*)?(handbag|apparel|sleep|knit|bottom|dress|outerwear|baby|kids\s+bedding)\b"
+    r"|\bdesigner\s+advocate\b"
+    r"|\bdesign\s+advocate\b",
+    re.IGNORECASE,
+)
+
+# ── Title: founding designer → REVIEW (often wants 5+ yrs despite startup framing)
+TITLE_FOUNDING = re.compile(r"\bfounding\s+(product\s+|ux\s+|ui\s+)?designer\b", re.IGNORECASE)
+
+# ── Location: US presence check ───────────────────────────────────────────────
+USA_LOCATION = re.compile(
+    r"\b(united\s+states|usa|u\.s\.a?\.?|remote|"
+    r"san\s+francisco|new\s+york|seattle|austin|chicago|boston|los\s+angeles|"
+    r"denver|atlanta|miami|portland|nashville|dallas|washington\s+dc|"
+    r"SF|NYC|LA|DC|"
+    r"california|new\s+york\s+state|texas|washington\s+state|illinois|"
+    r"\b(CA|NY|TX|WA|IL|MA|CO|GA|FL|OR|NC|VA|PA|OH|MI|MN|AZ|TN|MD|DC)\b)\b",
+    re.IGNORECASE,
+)
+
+# If non-US location, check if they offer visa support → REVIEW instead of SKIP
+VISA_OFFER = re.compile(
+    r"\b(visa\s+sponsorship|will\s+sponsor|sponsoring\s+visa|OPT|CPT|f[\s\-]?1\s+visa|"
+    r"h[\s\-]?1[\s\-]?b\s+sponsor|work\s+visa\s+provided|relocation\s+package)\b",
     re.IGNORECASE,
 )
 
