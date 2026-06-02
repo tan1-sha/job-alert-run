@@ -12,8 +12,15 @@ log = logging.getLogger(__name__)
 
 
 def _job_id(company: str, title: str, url: str) -> str:
+    """URL-based ID — unique per source listing."""
     raw = f"{company.lower().strip()}|{title.lower().strip()}|{url.strip()}"
     return hashlib.sha1(raw.encode()).hexdigest()
+
+
+def _fingerprint(company: str, title: str) -> str:
+    """Content fingerprint — same job from multiple sources → same fingerprint."""
+    raw = f"{company.lower().strip()}|{title.lower().strip()}"
+    return "fp:" + hashlib.sha1(raw.encode()).hexdigest()
 
 
 def _normalize(
@@ -26,10 +33,12 @@ def _normalize(
     source: str,
     date_posted: str | None = None,
 ) -> dict[str, Any]:
+    c, t = company.strip(), title.strip()
     return {
-        "id": _job_id(company, title, url),
-        "title": title.strip(),
-        "company": company.strip(),
+        "id": _job_id(c, t, url),
+        "fingerprint": _fingerprint(c, t),
+        "title": t,
+        "company": c,
         "location": location.strip(),
         "description": description or "",
         "url": url.strip(),
@@ -217,13 +226,17 @@ def fetch_all() -> list[dict]:
         jobs.extend(fetch_ashby(slug))
         time.sleep(0.3)
 
-    # deduplicate by id within this batch
-    seen: set[str] = set()
+    # Dedup within batch: by URL-based id first, then by content fingerprint.
+    # Fingerprint catches same job appearing on multiple boards (LinkedIn + Greenhouse etc).
+    seen_ids: set[str] = set()
+    seen_fps: set[str] = set()
     unique: list[dict] = []
     for job in jobs:
-        if job["id"] not in seen:
-            seen.add(job["id"])
-            unique.append(job)
+        if job["id"] in seen_ids or job["fingerprint"] in seen_fps:
+            continue
+        seen_ids.add(job["id"])
+        seen_fps.add(job["fingerprint"])
+        unique.append(job)
 
-    log.info("fetched %d unique jobs total", len(unique))
+    log.info("fetched %d unique jobs total (before cross-run dedup)", len(unique))
     return unique

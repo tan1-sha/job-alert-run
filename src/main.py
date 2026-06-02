@@ -16,33 +16,39 @@ logging.basicConfig(
 log = logging.getLogger("main")
 
 
-def load_seen() -> set[str]:
+def load_seen() -> tuple[set[str], set[str]]:
+    """Returns (seen_ids, seen_fingerprints)."""
     path = Path(config.SEEN_JOBS_PATH)
     if not path.exists():
-        return set()
+        return set(), set()
     try:
         data = json.loads(path.read_text())
-        return set(data.get("ids", []))
+        return set(data.get("ids", [])), set(data.get("fingerprints", []))
     except Exception:
-        return set()
+        return set(), set()
 
 
-def save_seen(ids: set[str]) -> None:
+def save_seen(ids: set[str], fingerprints: set[str]) -> None:
     path = Path(config.SEEN_JOBS_PATH)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({
         "ids": sorted(ids),
+        "fingerprints": sorted(fingerprints),
         "last_run": datetime.now(timezone.utc).isoformat(),
     }, indent=2))
 
 
 def run() -> None:
-    seen_ids = load_seen()
-    log.info("loaded %d seen job IDs", len(seen_ids))
+    seen_ids, seen_fps = load_seen()
+    log.info("loaded %d seen IDs, %d fingerprints", len(seen_ids), len(seen_fps))
 
     all_jobs = fetcher.fetch_all()
 
-    new_jobs = [j for j in all_jobs if j["id"] not in seen_ids]
+    # Cross-run dedup: skip if URL-id OR content fingerprint already seen
+    new_jobs = [
+        j for j in all_jobs
+        if j["id"] not in seen_ids and j["fingerprint"] not in seen_fps
+    ]
     log.info("%d new jobs after dedup", len(new_jobs))
 
     counts = {"STRONG": 0, "REVIEW": 0, "SKIP": 0}
@@ -51,8 +57,11 @@ def run() -> None:
         bucket, reason = filt.classify(job)
         counts[bucket] += 1
 
+        # Mark seen regardless of bucket so we never re-process
+        seen_ids.add(job["id"])
+        seen_fps.add(job["fingerprint"])
+
         if bucket == "SKIP":
-            seen_ids.add(job["id"])
             continue
 
         if bucket == "STRONG":
@@ -61,11 +70,9 @@ def run() -> None:
         elif bucket == "REVIEW":
             notion_writer.add_row(job, bucket, reason)
 
-        seen_ids.add(job["id"])
-
     log.info("results → STRONG: %d  REVIEW: %d  SKIP: %d", *counts.values())
-    save_seen(seen_ids)
-    log.info("seen_jobs.json updated (%d total IDs)", len(seen_ids))
+    save_seen(seen_ids, seen_fps)
+    log.info("seen_jobs.json updated (%d IDs, %d fingerprints)", len(seen_ids), len(seen_fps))
 
 
 if __name__ == "__main__":
