@@ -102,7 +102,7 @@ TITLE_REQUIRED = re.compile(
 # Does NOT block plain "Product Designer" (no modifier = open level, often entry-OK).
 TITLE_SENIORITY_BLOCK = re.compile(
     # Title begins with seniority modifier (covers "Senior X Designer", "Staff UX Y Designer", etc.)
-    r"^\s*(senior|sr\.?|staff|principal|lead)\b"
+    r"^\s*(senior|sr\.?|staff|principal|lead|manager)\b"
     # Management / leadership roles
     r"|\b(head\s+of[\w\s]*design|director[\w\s]*design|design\s+director|design\s+manager|design\s+lead)\b"
     r"|\b(ux|product|ui|experience)\s+(design\s+)?(director|manager|lead|head)\b"
