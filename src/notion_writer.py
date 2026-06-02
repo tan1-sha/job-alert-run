@@ -32,8 +32,11 @@ def add_row(job: dict, bucket: str, reason: str, everify: Optional[bool]) -> Non
         "Job title": {
             "title": [{"text": {"content": job["title"][:200]}}]
         },
-        "Company ": {
+        "Company": {
             "rich_text": [{"text": {"content": job["company"][:100]}}]
+        },
+        "Source": {
+            "rich_text": [{"text": {"content": job.get("source", "")[:100]}}]
         },
         "Link": {
             "url": job["url"] or None
