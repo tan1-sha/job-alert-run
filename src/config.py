@@ -99,34 +99,28 @@ ENTRY_LEVEL_SIGNAL = re.compile(
     re.IGNORECASE,
 )
 
-# 3+ years explicitly required → too senior, SKIP
-# (?<![\-–]) prevents matching "3" in "2-3 years" (word boundary fires on "3" after dash)
+# 2+ years minimum required → too senior for entry-level new grad, SKIP
+# 0-2 and 1-2 are fine (upper bound only) — those are caught by ENTRY_LEVEL_SIGNAL or pass through
+# (?<![\-–\d]) prevents matching mid-range digits (e.g. "3" in "1-3 years")
 EXPERIENCE_SKIP = re.compile(
-    # "3+ years of [design/ux/...] experience"  (not preceded by a dash → not end of 2-3 range)
-    r"(?<![\-–\d])([3-9]|\d{2,})\+?\s*years?\s+(of\s+)?"
-    r"(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)?\s*"
-    r"(design\s+)?experience\b"
-    # "3–5 years of [product design] experience" (leading number must be 3+)
-    r"|(?<![\-–\d])([3-9]|\d{2,})\s*[\-–]\s*\d+\s*years?\s*(of\s+)?"
-    r"(ux|ui|product|design|professional|work|relevant)?\s*(design\s+)?experience\b"
-    # "minimum/at least 3 years"
-    r"|\b(minimum|at\s+least)\s+(of\s+)?([3-9]|\d{2,})\s*years?\b",
-    re.IGNORECASE,
-)
-
-# 2+ years required → borderline, REVIEW (4 internships might qualify)
-EXPERIENCE_REVIEW = re.compile(
-    # "2+ years of [design/...] experience"  (explicit + sign required to distinguish from "2 years ago")
+    # "2+ years of [design/ux/...] experience"  (explicit + = minimum 2, no upper bound)
     r"(?<![\-–\d])2\+\s*years?\s+(of\s+)?"
     r"(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)?\s*"
     r"(design\s+)?experience\b"
-    # "2–3 years" / "2–4 years" etc.
-    r"|(?<![\-–\d])2\s*[\-–]\s*[3-9]\s*years?\s*(of\s+)?"
-    r"(ux|ui|product|design|professional|work)?\s*experience\b"
-    # "minimum/at least 2 years"
-    r"|\b(minimum|at\s+least)\s+(of\s+)?2\s*years?\b",
+    # "3+ years of experience" and higher
+    r"|(?<![\-–\d])([3-9]|\d{2,})\+?\s*years?\s+(of\s+)?"
+    r"(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)?\s*"
+    r"(design\s+)?experience\b"
+    # "2–3 years", "2–4 years", "3–5 years" etc. — lower bound ≥ 2
+    r"|(?<![\-–\d])([2-9]|\d{2,})\s*[\-–]\s*\d+\s*years?\s*(of\s+)?"
+    r"(ux|ui|product|design|professional|work|relevant)?\s*(design\s+)?experience\b"
+    # "minimum/at least 2 years" or more
+    r"|\b(minimum|at\s+least)\s+(of\s+)?([2-9]|\d{2,})\s*years?\b",
     re.IGNORECASE,
 )
+
+# No REVIEW bucket for experience anymore — 2+ is SKIP, <2 is fine
+EXPERIENCE_REVIEW = re.compile(r"(?!)", re.IGNORECASE)  # never matches
 
 # ── Title: must match a digital/product design role ───────────────────────────
 # Requires explicit qualifier — plain "designer" alone is too broad
