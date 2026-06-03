@@ -42,7 +42,21 @@ def classify(job: dict) -> tuple[Bucket, str]:
         if pat.search(full_text):
             return "SKIP", f"hard-out description: {pat.pattern[:60]}"
 
-    # ── 6. Soft sponsorship flags → REVIEW ────────────────────────────────────
+    # ── 6. Experience year gates ──────────────────────────────────────────────
+    # Only applied when description is present (ATS feeds sometimes omit body).
+    if description:
+        has_entry_signal = bool(config.ENTRY_LEVEL_SIGNAL.search(description))
+        if not has_entry_signal:
+            if config.EXPERIENCE_SKIP.search(description):
+                m = config.EXPERIENCE_SKIP.search(description)
+                snippet = description[max(0, m.start()-20):m.end()+20].strip()
+                return "SKIP", f"requires 3+ years experience: «{snippet[:80]}»"
+            if config.EXPERIENCE_REVIEW.search(description):
+                m = config.EXPERIENCE_REVIEW.search(description)
+                snippet = description[max(0, m.start()-20):m.end()+20].strip()
+                return "REVIEW", f"requires 2+ years experience (borderline): «{snippet[:80]}»"
+
+    # ── 7. Soft sponsorship flags → REVIEW ────────────────────────────────────
     for pat in config.REVIEW_PATTERNS:
         if pat.search(full_text):
             return "REVIEW", f"ambiguous sponsorship language: {pat.pattern[:60]}"

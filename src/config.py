@@ -88,6 +88,46 @@ REVIEW_PATTERNS = [
     ]
 ]
 
+# ── Experience year gates (applied to full description text) ─────────────────
+# Candidate has ~10 months internship experience (4 internships, new grad May 2026).
+
+# If description explicitly targets new grads / entry level → bypass year gates
+ENTRY_LEVEL_SIGNAL = re.compile(
+    r"\b(entry[\s\-]level|new\s+grad(uate)?|recent\s+grad(uate)?|early\s+career"
+    r"|0[\s\-]2\s*years?|0[\s\-]1\s*years?|1[\s\-]2\s*years?"
+    r"|no\s+experience\s+required|internship\s+experience\s+(counts?|considered|welcome))\b",
+    re.IGNORECASE,
+)
+
+# 3+ years explicitly required → too senior, SKIP
+# (?<![\-–]) prevents matching "3" in "2-3 years" (word boundary fires on "3" after dash)
+EXPERIENCE_SKIP = re.compile(
+    # "3+ years of [design/ux/...] experience"  (not preceded by a dash → not end of 2-3 range)
+    r"(?<![\-–\d])([3-9]|\d{2,})\+?\s*years?\s+(of\s+)?"
+    r"(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)?\s*"
+    r"(design\s+)?experience\b"
+    # "3–5 years of [product design] experience" (leading number must be 3+)
+    r"|(?<![\-–\d])([3-9]|\d{2,})\s*[\-–]\s*\d+\s*years?\s*(of\s+)?"
+    r"(ux|ui|product|design|professional|work|relevant)?\s*(design\s+)?experience\b"
+    # "minimum/at least 3 years"
+    r"|\b(minimum|at\s+least)\s+(of\s+)?([3-9]|\d{2,})\s*years?\b",
+    re.IGNORECASE,
+)
+
+# 2+ years required → borderline, REVIEW (4 internships might qualify)
+EXPERIENCE_REVIEW = re.compile(
+    # "2+ years of [design/...] experience"  (explicit + sign required to distinguish from "2 years ago")
+    r"(?<![\-–\d])2\+\s*years?\s+(of\s+)?"
+    r"(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)?\s*"
+    r"(design\s+)?experience\b"
+    # "2–3 years" / "2–4 years" etc.
+    r"|(?<![\-–\d])2\s*[\-–]\s*[3-9]\s*years?\s*(of\s+)?"
+    r"(ux|ui|product|design|professional|work)?\s*experience\b"
+    # "minimum/at least 2 years"
+    r"|\b(minimum|at\s+least)\s+(of\s+)?2\s*years?\b",
+    re.IGNORECASE,
+)
+
 # ── Title: must match a digital/product design role ───────────────────────────
 # Requires explicit qualifier — plain "designer" alone is too broad
 TITLE_REQUIRED = re.compile(
