@@ -51,14 +51,17 @@ def classify(job: dict) -> tuple[Bucket, str]:
             return "SKIP", f"hard-out: {pat.pattern[:60]}"
 
     # ── 6. Experience year gates ──────────────────────────────────────────────
-    # Applied when description present. HTML stripped above so regex sees plain text.
-    # Jobs with no description pass through — flag as REVIEW for manual check.
+    # EXPERIENCE_SKIP always wins — even if "entry-level" appears elsewhere in desc.
+    # Some jobs say "entry-level welcome" then list "4+ years preferred" → still skip.
+    # Exception: if BOTH signals fire, route to REVIEW for manual check instead of
+    # hard-skipping (mixed signals could mean the high-year line is a "nice to have").
     if description.strip():
-        if not config.ENTRY_LEVEL_SIGNAL.search(description):
-            m = config.EXPERIENCE_SKIP.search(description)
-            if m:
-                snippet = description[max(0, m.start()-15):m.end()+15].strip()
-                return "SKIP", f"experience req too high: «{snippet[:80]}»"
+        m = config.EXPERIENCE_SKIP.search(description)
+        if m:
+            snippet = description[max(0, m.start()-15):m.end()+15].strip()
+            if config.ENTRY_LEVEL_SIGNAL.search(description):
+                return "REVIEW", f"mixed signals — entry-level language but high exp req: «{snippet[:80]}»"
+            return "SKIP", f"experience req too high: «{snippet[:80]}»"
     else:
         # No description fetched — could be any level. Flag to review manually.
         return "REVIEW", "no description available — verify experience level manually"

@@ -107,6 +107,13 @@ def add_row(job: dict, bucket: str, reason: str) -> None:
     why = f"[{bucket}] {reason}"[:200]
     date_str = datetime.now(timezone.utc).date().isoformat()
 
+    # Strip HTML from description before storing; Notion rich_text max = 2000 chars
+    import re as _re
+    raw_desc = job.get("description", "") or ""
+    plain_desc = _re.sub(r"<[^>]+>", " ", raw_desc)
+    plain_desc = _re.sub(r"&[a-z]+;|&#\d+;", " ", plain_desc, flags=_re.IGNORECASE)
+    plain_desc = " ".join(plain_desc.split())[:2000]  # collapse whitespace, cap
+
     props: dict = {
         "Job title": {
             "title": [{"text": {"content": job["title"][:200]}}]
@@ -135,6 +142,9 @@ def add_row(job: dict, bucket: str, reason: str) -> None:
         },
         "Applied": {
             "checkbox": False
+        },
+        "Job Description": {
+            "rich_text": [{"text": {"content": plain_desc}}] if plain_desc else []
         },
     }
 
