@@ -169,6 +169,8 @@ TITLE_REQUIRED = re.compile(
 TITLE_SENIORITY_BLOCK = re.compile(
     # Title begins with seniority modifier (covers "Senior X Designer", "Staff UX Y Designer", etc.)
     r"^\s*(senior|sr\.?|staff|principal|lead|manager)\b"
+    # "Senior Associate", "Senior Specialist" etc. anywhere in title (e.g. "Experience Design Senior Associate")
+    r"|\bsenior\s+(associate|specialist|consultant|advisor|strategist)\b"
     # Management / leadership roles
     r"|\b(head\s+of[\w\s]*design|director[\w\s]*design|design\s+director|design\s+manager|design\s+lead)\b"
     r"|\b(ux|product|ui|experience)\s+(design\s+)?(director|manager|lead|head)\b"
