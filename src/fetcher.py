@@ -58,7 +58,7 @@ def fetch_jobspy() -> list[dict]:
 
     results: list[dict] = []
     for term in config.SEARCH_TERMS:
-        for location in config.LOCATIONS[:2]:  # SF + NYC to stay under rate limits
+        for location in config.LOCATIONS:  # all locations including Remote
             try:
                 df = scrape_jobs(
                     site_name=["indeed", "linkedin", "glassdoor", "zip_recruiter"],
@@ -88,36 +88,40 @@ def fetch_jobspy() -> list[dict]:
 
 ADZUNA_BASE = "https://api.adzuna.com/v1/api/jobs/us/search/1"
 
+_ADZUNA_LOCATIONS = ["San Francisco", "New York", "Seattle", "Austin", "Remote"]
+
 def fetch_adzuna() -> list[dict]:
     results: list[dict] = []
     for term in config.SEARCH_TERMS:
-        try:
-            resp = requests.get(
-                ADZUNA_BASE,
-                params={
-                    "app_id": config.ADZUNA_APP_ID,
-                    "app_key": config.ADZUNA_APP_KEY,
-                    "results_per_page": 50,
-                    "what": term,
-                    "where": "San Francisco",
-                    "full_time": 1,
-                    "sort_by": "date",
-                },
-                timeout=15,
-            )
-            resp.raise_for_status()
-            for job in resp.json().get("results", []):
-                results.append(_normalize(
-                    title=job.get("title", ""),
-                    company=job.get("company", {}).get("display_name", ""),
-                    location=job.get("location", {}).get("display_name", ""),
-                    description=job.get("description", ""),
-                    url=job.get("redirect_url", ""),
-                    source="adzuna",
-                    date_posted=job.get("created", ""),
-                ))
-        except Exception as exc:
-            log.warning("adzuna error for %r: %s", term, exc)
+        for where in _ADZUNA_LOCATIONS:
+            try:
+                resp = requests.get(
+                    ADZUNA_BASE,
+                    params={
+                        "app_id": config.ADZUNA_APP_ID,
+                        "app_key": config.ADZUNA_APP_KEY,
+                        "results_per_page": 20,
+                        "what": term,
+                        "where": where,
+                        "full_time": 1,
+                        "sort_by": "date",
+                    },
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                for job in resp.json().get("results", []):
+                    results.append(_normalize(
+                        title=job.get("title", ""),
+                        company=job.get("company", {}).get("display_name", ""),
+                        location=job.get("location", {}).get("display_name", ""),
+                        description=job.get("description", ""),
+                        url=job.get("redirect_url", ""),
+                        source="adzuna",
+                        date_posted=job.get("created", ""),
+                    ))
+                time.sleep(1)
+            except Exception as exc:
+                log.warning("adzuna error for %r @ %r: %s", term, where, exc)
     return results
 
 

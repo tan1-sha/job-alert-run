@@ -18,6 +18,8 @@ SEARCH_TERMS = [
     "ux designer",
     "ui designer",
     "interaction designer",
+    "design systems designer",
+    "ux ui designer",
 ]
 
 # Focus on US cities; "Remote" treated as US-based (most US boards default US remote)
@@ -43,17 +45,45 @@ PRIORITY_COMPANIES = {
 
 # ── ATS slugs to poll directly ────────────────────────────────────────────────
 GREENHOUSE_SLUGS = [
+    # Original
     "notion", "figma", "airtable", "retool", "loom", "mercury", "brex",
     "rippling", "lattice", "intercom", "asana", "dropbox", "anthropic",
     "perplexity", "openai", "vercel", "linear",
+    # Fintech / banking
+    "stripe", "plaid", "robinhood", "coinbase", "chime", "wealthfront",
+    "carta", "gusto", "deel", "remote", "ripple",
+    # Consumer / social
+    "airbnb", "doordash", "lyft", "duolingo", "reddit", "pinterest",
+    "snap", "discord", "eventbrite", "meetup",
+    # SaaS / productivity
+    "hubspot", "zendesk", "amplitude", "mixpanel", "segment", "typeform",
+    "miro", "coda", "hex", "descript", "runway", "framer", "webflow",
+    "klaviyo", "iterable", "sendbird", "liveblocks",
+    # AI / infrastructure
+    "cohere", "scaleai", "replit", "modal", "langchain", "weights-biases",
+    "huggingface", "together",
+    # Enterprise / data
+    "benchling", "palantir", "figma", "canva", "lucid",
+    # Other design-strong companies
+    "spotify", "netflix", "twitch", "roblox", "unity",
 ]
 
 LEVER_SLUGS = [
+    # Original
     "clay", "superhuman", "pitch", "raycast",
+    # Additional
+    "discord", "loom", "figma", "ramp", "watershed",
+    "linear", "vercel", "dbt-labs", "prefect", "dagster",
+    "gather", "mmhmm", "jam", "fathom",
 ]
 
 ASHBY_SLUGS = [
+    # Original
     "linear", "mercury", "arc",
+    # Additional
+    "luma", "loops", "resend", "cal", "dub", "plain",
+    "campsite", "superlist", "craft", "supabase", "neon",
+    "turso", "trigger", "inngest", "basehub",
 ]
 
 # ── Hard-out description patterns → SKIP ─────────────────────────────────────
@@ -127,7 +157,8 @@ EXPERIENCE_REVIEW = re.compile(r"(?!)", re.IGNORECASE)  # never matches
 # "visual" removed — visual designer roles are not relevant to candidate's target.
 TITLE_REQUIRED = re.compile(
     r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|content|growth|ai|associate)\s+designer\b"
-    r"|\b(ux|ui|product|experience|interaction)\s+design\b",
+    r"|\b(ux|ui|product|experience|interaction)\s+design\b"
+    r"|\bdesign\s+systems?\s+designer\b",
     re.IGNORECASE,
 )
 
