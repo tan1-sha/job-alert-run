@@ -21,29 +21,29 @@ def send_review(job: dict, reason: str) -> None:
 
 def _send(job: dict, bucket: str, reason: str) -> None:
     location = job["location"] or "Location not listed"
-    url = job["url"] or "No link"
+    url      = job["url"] or "No link"
 
     lines = [
-        f"*{_e(job['title'])}*, {_e(job['company'])}",
-        _e(location),
+        f"<b>{_h(job['title'])}</b>, {_h(job['company'])}",
+        _h(location),
         url,
     ]
 
-    # Only add Note when something actually needs review — skip clean STRONG reasons
-    _clean = {"passed all filters", "priority company"}
-    needs_note = bucket == "REVIEW" or not any(reason.lower().startswith(c) for c in _clean)
+    # Only add Note when something needs manual review
+    _clean_prefixes = ("passed all filters", "priority company")
+    needs_note = bucket == "REVIEW" or not any(
+        reason.lower().startswith(p) for p in _clean_prefixes
+    )
     if needs_note:
-        lines.append(f"Note: {_e(reason)}")
-
-    text = "\n".join(lines)
+        lines.append(f"Note: {_h(reason)}")
 
     try:
         resp = requests.post(
             _api_url(),
             json={
                 "chat_id": config.TELEGRAM_CHAT,
-                "text": text,
-                "parse_mode": "MarkdownV2",
+                "text": "\n".join(lines),
+                "parse_mode": "HTML",
                 "disable_web_page_preview": True,
             },
             timeout=10,
@@ -54,7 +54,6 @@ def _send(job: dict, bucket: str, reason: str) -> None:
         log.error("telegram: failed for %r: %s", job["title"], exc)
 
 
-def _e(text: str) -> str:
-    """Escape special chars for Telegram MarkdownV2."""
-    special = r"\_*[]()~`>#+-=|{}.!"
-    return "".join(f"\\{c}" if c in special else c for c in str(text))
+def _h(text: str) -> str:
+    """Escape HTML special chars for Telegram HTML parse mode."""
+    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
