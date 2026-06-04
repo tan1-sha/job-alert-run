@@ -66,18 +66,24 @@ def fetch_jobspy() -> list[dict]:
                     location=location,
                     results_wanted=config.RESULTS_PER_QUERY,
                     hours_old=config.HOURS_OLD,
+                    linkedin_fetch_description=True,  # extra request per job to get full description
                     verbose=0,
                 )
                 for _, row in df.iterrows():
-                    results.append(_normalize(
+                    job = _normalize(
                         title=str(row.get("title", "")),
                         company=str(row.get("company", "")),
                         location=str(row.get("location", "")),
-                        description=str(row.get("description", "")),
+                        description=str(row.get("description", "") or ""),
                         url=str(row.get("job_url", "")),
                         source=f"jobspy/{row.get('site', 'unknown')}",
                         date_posted=str(row.get("date_posted", "")),
-                    ))
+                    )
+                    # Store direct ATS URL separately for description enrichment
+                    direct = str(row.get("job_url_direct", "") or "")
+                    if direct and direct != "nan":
+                        job["url_direct"] = direct
+                    results.append(job)
                 time.sleep(2)  # be polite between queries
             except Exception as exc:
                 log.warning("jobspy error for %r @ %r: %s", term, location, exc)
@@ -200,6 +206,87 @@ def fetch_ashby(slug: str) -> list[dict]:
         return []
 
 
+# ── Description enrichment via ATS direct URL ────────────────────────────────
+# LinkedIn/Indeed block scraping so descriptions come back empty.
+# JobSpy's job_url_direct often points to the actual company ATS page
+# (Greenhouse / Lever / Ashby). We parse that URL and hit the public API
+# to get the full description — same APIs we already use for slug polling.
+
+import re as _re
+
+_GH_URL   = _re.compile(r"boards(?:-api)?\.greenhouse\.io/(?:v1/boards/)?([^/]+)/jobs/(\d+)", _re.I)
+_LV_URL   = _re.compile(r"jobs\.lever\.co/([^/]+)/([^/?]+)", _re.I)
+_ASH_URL  = _re.compile(r"(?:jobs\.ashbyhq\.com|api\.ashbyhq\.com/posting-api/job-board)/([^/]+)(?:/postings?)?/([^/?]+)", _re.I)
+
+
+def _fetch_description_from_ats_url(url: str) -> str:
+    """Try to get description from an ATS URL. Returns empty string on failure."""
+    if not url:
+        return ""
+    # Greenhouse
+    m = _GH_URL.search(url)
+    if m:
+        slug, job_id = m.group(1), m.group(2)
+        try:
+            r = requests.get(
+                f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs/{job_id}?questions=true",
+                timeout=8,
+            )
+            if r.ok:
+                return r.json().get("content", "")
+        except Exception:
+            pass
+    # Lever
+    m = _LV_URL.search(url)
+    if m:
+        slug, job_id = m.group(1), m.group(2)
+        try:
+            r = requests.get(f"https://api.lever.co/v0/postings/{slug}/{job_id}", timeout=8)
+            if r.ok:
+                data = r.json()
+                return data.get("descriptionPlain", "") or data.get("description", "")
+        except Exception:
+            pass
+    # Ashby — no single-job endpoint; fetch all and match by id
+    m = _ASH_URL.search(url)
+    if m:
+        slug, job_id = m.group(1), m.group(2)
+        try:
+            r = requests.get(
+                f"https://api.ashbyhq.com/posting-api/job-board/{slug}",
+                timeout=8,
+            )
+            if r.ok:
+                for j in r.json().get("jobs", []):
+                    if j.get("id") == job_id or j.get("jobUrl", "").endswith(job_id):
+                        return j.get("descriptionHtml", "")
+        except Exception:
+            pass
+    return ""
+
+
+def enrich_descriptions(jobs: list[dict]) -> list[dict]:
+    """
+    For jobs with no description, try to fetch from ATS using job_url_direct.
+    LinkedIn/Indeed block scraping — but their listings often link to Greenhouse/Lever/Ashby.
+    """
+    missing = [j for j in jobs if not j.get("description", "").strip()]
+    if not missing:
+        return jobs
+    log.info("enriching %d jobs with missing descriptions via ATS direct URLs…", len(missing))
+    enriched_count = 0
+    for job in missing:
+        direct_url = job.get("url_direct", "") or job.get("url", "")
+        desc = _fetch_description_from_ats_url(direct_url)
+        if desc.strip():
+            job["description"] = desc
+            enriched_count += 1
+            log.debug("ATS-enriched description for %r @ %r", job["title"], job["company"])
+        time.sleep(0.3)
+    log.info("ATS enriched %d / %d missing descriptions", enriched_count, len(missing))
+    return jobs
+
+
 # ── Orchestrator ──────────────────────────────────────────────────────────────
 
 def fetch_all() -> list[dict]:
@@ -239,4 +326,9 @@ def fetch_all() -> list[dict]:
         unique.append(job)
 
     log.info("fetched %d unique jobs total (before cross-run dedup)", len(unique))
+
+    # Enrich any jobs still missing descriptions (LinkedIn blocks JobSpy scraping).
+    # Jina AI converts job URLs to readable text so experience filter can run properly.
+    enrich_descriptions(unique)
+
     return unique
