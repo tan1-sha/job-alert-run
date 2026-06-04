@@ -22,8 +22,8 @@ SEARCH_TERMS = [
     "ux ui designer",
 ]
 
-# Focus on US cities; "Remote" treated as US-based (most US boards default US remote)
-LOCATIONS = ["San Francisco, CA", "New York, NY", "Seattle, WA", "Austin, TX", "Remote"]
+# National US search — open to any US location
+LOCATIONS = ["United States", "Remote"]
 
 RESULTS_PER_QUERY = 25   # per jobspy source per term
 HOURS_OLD         = 5    # only grab jobs posted in last 5h (run every 4h + buffer)
