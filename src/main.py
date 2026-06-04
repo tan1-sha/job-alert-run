@@ -78,6 +78,7 @@ def run() -> None:
             telegram_notify.send_strong(job, reason)
             notion_writer.add_row(job, bucket, reason)
         elif bucket == "REVIEW":
+            telegram_notify.send_review(job, reason)
             notion_writer.add_row(job, bucket, reason)
 
     # ── Step 6: persist updated cache ─────────────────────────────────────────

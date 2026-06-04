@@ -12,14 +12,27 @@ def _api_url() -> str:
 
 
 def send_strong(job: dict, reason: str) -> None:
+    _send(job, bucket="STRONG", reason=reason)
+
+
+def send_review(job: dict, reason: str) -> None:
+    _send(job, bucket="REVIEW", reason=reason)
+
+
+def _send(job: dict, bucket: str, reason: str) -> None:
+    location = job["location"] or "Location not listed"
+    url = job["url"] or "No link"
+
     lines = [
-        f"🔥 *STRONG MATCH*",
-        f"*{_escape(job['title'])}*",
-        f"🏢 {_escape(job['company'])}",
-        f"📍 {_escape(job['location'] or 'Not specified')}",
-        f"📌 {_escape(reason)}",
-        f"[View Job]({job['url']})",
+        f"*{_e(job['title'])}*, {_e(job['company'])}",
+        _e(location),
+        url,
     ]
+
+    # Surface review flags so candidate knows to verify manually
+    if bucket == "REVIEW" or "verify" in reason.lower() or "check" in reason.lower():
+        lines.append(f"Note: {_e(reason)}")
+
     text = "\n".join(lines)
 
     try:
@@ -29,17 +42,17 @@ def send_strong(job: dict, reason: str) -> None:
                 "chat_id": config.TELEGRAM_CHAT,
                 "text": text,
                 "parse_mode": "MarkdownV2",
-                "disable_web_page_preview": False,
+                "disable_web_page_preview": True,
             },
             timeout=10,
         )
         resp.raise_for_status()
-        log.info("telegram: sent alert for %r @ %r", job["title"], job["company"])
+        log.info("telegram [%s]: %r @ %r", bucket, job["title"], job["company"])
     except Exception as exc:
         log.error("telegram: failed for %r: %s", job["title"], exc)
 
 
-def _escape(text: str) -> str:
+def _e(text: str) -> str:
     """Escape special chars for Telegram MarkdownV2."""
     special = r"\_*[]()~`>#+-=|{}.!"
     return "".join(f"\\{c}" if c in special else c for c in str(text))
