@@ -1,10 +1,18 @@
+import re
+
 from src import config
 
 Bucket = str  # "STRONG" | "REVIEW" | "SKIP"
 
+_HTML_TAG = re.compile(r"<[^>]+>")
+_HTML_ENTITY = re.compile(r"&[a-z]+;|&#\d+;", re.IGNORECASE)
 
-def _full_text(job: dict) -> str:
-    return f"{job['title']} {job['description']}"
+
+def _clean(text: str) -> str:
+    """Strip HTML tags and entities so regex matches plain text."""
+    text = _HTML_TAG.sub(" ", text)
+    text = _HTML_ENTITY.sub(" ", text)
+    return text
 
 
 def classify(job: dict) -> tuple[Bucket, str]:
@@ -16,12 +24,12 @@ def classify(job: dict) -> tuple[Bucket, str]:
     title       = job["title"].strip()
     company     = job["company"].lower().strip()
     location    = job["location"].strip()
-    description = job["description"]
+    description = _clean(job.get("description", "") or "")
     full_text   = f"{title} {description}"
 
-    # ── 1. Wrong role type (non-digital designer) ─────────────────────────────
+    # ── 1. Wrong role type (non-digital / irrelevant designer) ───────────────
     if config.TITLE_ROLE_BLOCK.search(title):
-        return "SKIP", "wrong role type (motion/graphic/brand/non-digital)"
+        return "SKIP", "wrong role type (visual/motion/graphic/brand/accessory/non-digital)"
 
     # ── 2. Title must match a digital design role ─────────────────────────────
     if not config.TITLE_REQUIRED.search(title):
@@ -40,32 +48,31 @@ def classify(job: dict) -> tuple[Bucket, str]:
     # ── 5. Description hard-outs (citizenship/clearance/1099) ─────────────────
     for pat in config.HARD_OUT_PATTERNS:
         if pat.search(full_text):
-            return "SKIP", f"hard-out description: {pat.pattern[:60]}"
+            return "SKIP", f"hard-out: {pat.pattern[:60]}"
 
     # ── 6. Experience year gates ──────────────────────────────────────────────
-    # Only applied when description is present (ATS feeds sometimes omit body).
-    if description:
-        has_entry_signal = bool(config.ENTRY_LEVEL_SIGNAL.search(description))
-        if not has_entry_signal:
-            if config.EXPERIENCE_SKIP.search(description):
-                m = config.EXPERIENCE_SKIP.search(description)
-                snippet = description[max(0, m.start()-20):m.end()+20].strip()
-                return "SKIP", f"requires 3+ years experience: «{snippet[:80]}»"
-            if config.EXPERIENCE_REVIEW.search(description):
-                m = config.EXPERIENCE_REVIEW.search(description)
-                snippet = description[max(0, m.start()-20):m.end()+20].strip()
-                return "REVIEW", f"requires 2+ years experience (borderline): «{snippet[:80]}»"
+    # Applied when description present. HTML stripped above so regex sees plain text.
+    # Jobs with no description pass through — flag as REVIEW for manual check.
+    if description.strip():
+        if not config.ENTRY_LEVEL_SIGNAL.search(description):
+            m = config.EXPERIENCE_SKIP.search(description)
+            if m:
+                snippet = description[max(0, m.start()-15):m.end()+15].strip()
+                return "SKIP", f"experience req too high: «{snippet[:80]}»"
+    else:
+        # No description fetched — could be any level. Flag to review manually.
+        return "REVIEW", "no description available — verify experience level manually"
 
     # ── 7. Soft sponsorship flags → REVIEW ────────────────────────────────────
     for pat in config.REVIEW_PATTERNS:
         if pat.search(full_text):
             return "REVIEW", f"ambiguous sponsorship language: {pat.pattern[:60]}"
 
-    # ── 7. Founding designer → REVIEW (often expects senior despite framing) ──
+    # ── 8. Founding designer → REVIEW (often expects senior despite startup framing)
     if config.TITLE_FOUNDING.search(title):
-        return "REVIEW", "founding designer role — may expect more experience, review manually"
+        return "REVIEW", "founding designer — verify experience level manually"
 
-    # ── 8. Passed all filters → STRONG ────────────────────────────────────────
+    # ── 9. Passed all filters → STRONG ────────────────────────────────────────
     if company in config.PRIORITY_COMPANIES:
         return "STRONG", f"priority company: {job['company']}"
 

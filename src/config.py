@@ -100,22 +100,22 @@ ENTRY_LEVEL_SIGNAL = re.compile(
 )
 
 # 2+ years minimum required → too senior for entry-level new grad, SKIP
-# 0-2 and 1-2 are fine (upper bound only) — those are caught by ENTRY_LEVEL_SIGNAL or pass through
-# (?<![\-–\d]) prevents matching mid-range digits (e.g. "3" in "1-3 years")
+# (?<![\-–\d]) prevents matching "3" in "1-3 years" (word-boundary fires on trailing digit)
+_EXP_QUAL = r"(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)?\s*(design\s+)?"
+
 EXPERIENCE_SKIP = re.compile(
-    # "2+ years of [design/ux/...] experience"  (explicit + = minimum 2, no upper bound)
-    r"(?<![\-–\d])2\+\s*years?\s+(of\s+)?"
-    r"(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)?\s*"
-    r"(design\s+)?experience\b"
-    # "3+ years of experience" and higher
-    r"|(?<![\-–\d])([3-9]|\d{2,})\+?\s*years?\s+(of\s+)?"
-    r"(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)?\s*"
-    r"(design\s+)?experience\b"
-    # "2–3 years", "2–4 years", "3–5 years" etc. — lower bound ≥ 2
-    r"|(?<![\-–\d])([2-9]|\d{2,})\s*[\-–]\s*\d+\s*years?\s*(of\s+)?"
-    r"(ux|ui|product|design|professional|work|relevant)?\s*(design\s+)?experience\b"
+    # "2+ years of experience" or "3+ years of design experience" etc.
+    r"(?<![\-–\d])([2-9]|\d{2,})\+\s*years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b"
+    # "3 years of experience" (no +, bare number ≥ 3)
+    r"|(?<![\-–\d])([3-9]|\d{2,})\s+years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b"
+    # "2 years of [design/ux] experience" — must have qualifier to avoid "2 years ago"
+    r"|(?<![\-–\d])2\s+years?\s+(of\s+)(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)\s*(design\s+)?experience\b"
+    # "2–3 years", "3–5 years" etc. — lower bound ≥ 2
+    r"|(?<![\-–\d])([2-9]|\d{2,})\s*[\-–]\s*\d+\s*years?\s*(of\s+)?" + _EXP_QUAL + r"experience\b"
     # "minimum/at least 2 years" or more
-    r"|\b(minimum|at\s+least)\s+(of\s+)?([2-9]|\d{2,})\s*years?\b",
+    r"|\b(minimum|at\s+least)\s+(of\s+)?([2-9]|\d{2,})\s*years?\b"
+    # Spelled-out numbers ≥ two
+    r"|\b(two|three|four|five|six|seven|eight|nine|ten)\s+years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b",
     re.IGNORECASE,
 )
 
@@ -123,9 +123,10 @@ EXPERIENCE_SKIP = re.compile(
 EXPERIENCE_REVIEW = re.compile(r"(?!)", re.IGNORECASE)  # never matches
 
 # ── Title: must match a digital/product design role ───────────────────────────
-# Requires explicit qualifier — plain "designer" alone is too broad
+# Requires explicit qualifier — plain "designer" alone is too broad.
+# "visual" removed — visual designer roles are not relevant to candidate's target.
 TITLE_REQUIRED = re.compile(
-    r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|visual|content|growth|ai|associate)\s+designer\b"
+    r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|content|growth|ai|associate)\s+designer\b"
     r"|\b(ux|ui|product|experience|interaction)\s+design\b",
     re.IGNORECASE,
 )
@@ -146,10 +147,12 @@ TITLE_SENIORITY_BLOCK = re.compile(
 
 # ── Title: wrong role type hard-out ───────────────────────────────────────────
 TITLE_ROLE_BLOCK = re.compile(
-    r"\b(motion|graphic|brand|industrial|fashion|textile|apparel|packaging|interior|"
-    r"landscape|game|jewelry|photonics|technical|freelance|presentation|powerpoint|"
-    r"instructional|curriculum|web\s+graphic|performance\s+creative|slide)\s+designer\b"
-    r"|\bdesigner\s*([-–]\s*)?(handbag|apparel|sleep|knit|bottom|dress|outerwear|baby|kids\s+bedding)\b"
+    # "visual [anything] designer" — visual designer, visual UX designer, visual product designer etc.
+    r"\bvisual\s+(\w+\s+)?designer\b"
+    r"|\b(motion|graphic|brand|industrial|fashion|textile|apparel|packaging|interior|"
+    r"landscape|game|jewelry|accessory|accessories|photonics|technical|freelance|presentation|"
+    r"powerpoint|instructional|curriculum|web\s+graphic|performance\s+creative|slide)\s+designer\b"
+    r"|\bdesigner\s*([-–]\s*)?(handbag|apparel|sleep|knit|bottom|dress|outerwear|baby|kids\s+bedding|accessory|accessories)\b"
     r"|\bdesigner\s+advocate\b"
     r"|\bdesign\s+advocate\b",
     re.IGNORECASE,
