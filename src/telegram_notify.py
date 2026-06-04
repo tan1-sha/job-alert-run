@@ -29,8 +29,10 @@ def _send(job: dict, bucket: str, reason: str) -> None:
         url,
     ]
 
-    # Surface review flags so candidate knows to verify manually
-    if bucket == "REVIEW" or "verify" in reason.lower() or "check" in reason.lower():
+    # Only add Note when something actually needs review — skip clean STRONG reasons
+    _clean = {"passed all filters", "priority company"}
+    needs_note = bucket == "REVIEW" or not any(reason.lower().startswith(c) for c in _clean)
+    if needs_note:
         lines.append(f"Note: {_e(reason)}")
 
     text = "\n".join(lines)
