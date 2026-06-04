@@ -53,12 +53,19 @@ def classify(job: dict) -> tuple[Bucket, str]:
     # ── 6. Experience year gates ──────────────────────────────────────────────
     # If description explicitly says entry-level / new grad → trust it, bypass year check.
     # Otherwise: any 2+ year requirement → SKIP.
+    # Also catches qualitative seniority language (no year count) → REVIEW.
     if description.strip():
-        if not config.ENTRY_LEVEL_SIGNAL.search(description):
+        entry_level = config.ENTRY_LEVEL_SIGNAL.search(description)
+        if not entry_level:
             m = config.EXPERIENCE_SKIP.search(description)
             if m:
                 snippet = description[max(0, m.start()-15):m.end()+15].strip()
                 return "SKIP", f"experience req too high: «{snippet[:80]}»"
+            # No explicit year count — check for qualitative seniority signals
+            s = config.DESCRIPTION_SENIORITY_SIGNALS.search(description)
+            if s:
+                snippet = description[max(0, s.start()-10):s.end()+10].strip()
+                return "REVIEW", f"seniority language in description — verify level: «{snippet[:80]}»"
     else:
         # No description fetched — could be any level. Flag to review manually.
         return "REVIEW", "no description available — verify experience level manually"

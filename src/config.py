@@ -152,6 +152,18 @@ EXPERIENCE_SKIP = re.compile(
 # No REVIEW bucket for experience anymore — 2+ is SKIP, <2 is fine
 EXPERIENCE_REVIEW = re.compile(r"(?!)", re.IGNORECASE)  # never matches
 
+# Qualitative seniority signals in description — no year count, but implies mid/senior level.
+# If found WITHOUT entry-level signal → REVIEW (not SKIP, in case it's aspirational language).
+DESCRIPTION_SENIORITY_SIGNALS = re.compile(
+    r"\b(proven|extensive|deep|substantial|significant|demonstrated|considerable)\s+"
+    r"(track\s+record|experience|expertise|background)\b"
+    r"|\bproven\s+track\s+record\b"
+    r"|\bseasoned\s+(designer|professional|practitioner)\b"
+    r"|\b(expert[\s\-]level|expert\s+knowledge)\b"
+    r"|\bseveral\s+years\s+(of\s+)?(experience|design)\b",
+    re.IGNORECASE,
+)
+
 # ── Title: must match a digital/product design role ───────────────────────────
 # Requires explicit qualifier — plain "designer" alone is too broad.
 # "visual" removed — visual designer roles are not relevant to candidate's target.
@@ -171,10 +183,12 @@ TITLE_SENIORITY_BLOCK = re.compile(
     r"^\s*(senior|sr\.?|staff|principal|lead|manager)\b"
     # "Senior Associate", "Senior Specialist" etc. anywhere in title (e.g. "Experience Design Senior Associate")
     r"|\bsenior\s+(associate|specialist|consultant|advisor|strategist)\b"
+    # VP — both abbreviated and spelled out
+    r"|\b(vice\s+president|vp)[,\s]*(of\s+)?(product\s+|ux\s+|ui\s+|experience\s+)?design\b"
+    r"|\b(vice\s+president|vp)\b.*design"
     # Management / leadership roles
     r"|\b(head\s+of[\w\s]*design|director[\w\s]*design|design\s+director|design\s+manager|design\s+lead)\b"
-    r"|\b(ux|product|ui|experience)\s+(design\s+)?(director|manager|lead|head)\b"
-    r"|\bvp[,\s]+(of\s+)?(product\s+)?design\b",
+    r"|\b(ux|product|ui|experience)\s+(design\s+)?(director|manager|lead|head)\b",
     re.IGNORECASE,
 )
 
