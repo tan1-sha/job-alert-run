@@ -27,6 +27,10 @@ def classify(job: dict) -> tuple[Bucket, str]:
     description = _clean(job.get("description", "") or "")
     full_text   = f"{title} {description}"
 
+    # ── 0. Staffing / contract agency — not a direct employer job ────────────
+    if config.STAFFING_AGENCY_BLOCK.search(company):
+        return "SKIP", f"staffing/contract agency: {company}"
+
     # ── 1. Wrong role type (non-digital / irrelevant designer) ───────────────
     if config.TITLE_ROLE_BLOCK.search(title):
         return "SKIP", "wrong role type (visual/motion/graphic/brand/accessory/non-digital)"

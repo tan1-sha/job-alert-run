@@ -144,8 +144,8 @@ EXPERIENCE_SKIP = re.compile(
     r"|(?<![\-–\d])([2-9]|\d{2,})\s*[\-–]\s*\d+\s*years?\s*(of\s+)?" + _EXP_QUAL + r"experience\b"
     # "minimum/at least 2 years" or more
     r"|\b(minimum|at\s+least)\s+(of\s+)?([2-9]|\d{2,})\s*years?\b"
-    # Spelled-out numbers ≥ two
-    r"|\b(two|three|four|five|six|seven|eight|nine|ten)\s+years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b",
+    # Spelled-out numbers ≥ two — including "or more" variant e.g. "three or more years"
+    r"|\b(two|three|four|five|six|seven|eight|nine|ten)(\s+or\s+more)?\s+years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b",
     re.IGNORECASE,
 )
 
@@ -160,7 +160,22 @@ DESCRIPTION_SENIORITY_SIGNALS = re.compile(
     r"|\bproven\s+track\s+record\b"
     r"|\bseasoned\s+(designer|professional|practitioner)\b"
     r"|\b(expert[\s\-]level|expert\s+knowledge)\b"
-    r"|\bseveral\s+years\s+(of\s+)?(experience|design)\b",
+    r"|\bseveral\s+years\s+(of\s+)?(experience|design)\b"
+    # "seeking a Senior/experienced/seasoned designer" in description body
+    r"|\bseeking\s+a\s+(senior|experienced|seasoned|skilled|strong)\b"
+    r"|\b(senior|staff|principal)\s+(ux|ui|product|interaction|experience)\s+designer\b",
+    re.IGNORECASE,
+)
+
+# ── Staffing / contract agency company blocklist → SKIP ──────────────────────
+# These post contract roles on behalf of clients — not direct employer jobs.
+STAFFING_AGENCY_BLOCK = re.compile(
+    r"\b(kforce|cella|aquent|apex\s+group|24\s+seven|leappoint|"
+    r"fetchjobs|agile\s*grid|kpg99|synergy\s+business|leadstack|"
+    r"teksystems|insight\s+global|robert\s+half|randstad|"
+    r"hays|modis|creative\s+circle|onward\s+search|"
+    r"jobs\s+via\s+dice|jobs\s+via\s+linkedin|staffmark|"
+    r"aerotek|cybercoders|manpower|adecco)\b",
     re.IGNORECASE,
 )
 
