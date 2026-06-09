@@ -44,10 +44,19 @@ def classify(job: dict) -> tuple[Bucket, str]:
         return "SKIP", "too senior (senior/staff/principal/lead/director/manager)"
 
     # ── 4. Location: must be USA or explicitly offering visa ──────────────────
+    # Bug fix: empty location skipped check entirely — now always validate.
+    # Also checks full_text for non-US country names (catches "Remote" jobs
+    # posted by non-US companies where location field says only "Remote").
+    non_us_in_text = config.NON_US_LOCATION.search(full_text)
     if location and not config.USA_LOCATION.search(location):
         if config.VISA_OFFER.search(full_text):
             return "REVIEW", f"non-US location but offers visa/OPT support: {location}"
         return "SKIP", f"non-US location, no visa mention: {location}"
+    if non_us_in_text and not config.USA_LOCATION.search(location or ""):
+        # Description mentions a foreign country and location isn't confirmed US
+        if config.VISA_OFFER.search(full_text):
+            return "REVIEW", f"non-US signals in description: {non_us_in_text.group()}"
+        return "SKIP", f"non-US signals in description: {non_us_in_text.group()}"
 
     # ── 5. Description hard-outs (citizenship/clearance/1099) ─────────────────
     for pat in config.HARD_OUT_PATTERNS:

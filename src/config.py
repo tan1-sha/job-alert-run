@@ -234,6 +234,49 @@ USA_LOCATION = re.compile(
     re.IGNORECASE,
 )
 
+# Non-US country/city signals — checked in location field AND description
+# Catches jobs posted as "Remote" by non-US companies
+NON_US_LOCATION = re.compile(
+    r"\b(singapore|peru|lima|bogot[aá]|colombia|mexico\s+city|guadalajara|monterrey"
+    r"|london|united\s+kingdom|\buk\b|england|scotland|ireland|dublin"
+    r"|canada|toronto|vancouver|montreal|ottawa"
+    r"|australia|sydney|melbourne|brisbane"
+    r"|india|bangalore|bengaluru|mumbai|delhi|hyderabad|pune|chennai"
+    r"|germany|berlin|munich|frankfurt|hamburg"
+    r"|france|paris|lyon|toulouse"
+    r"|netherlands|amsterdam|rotterdam"
+    r"|spain|madrid|barcelona"
+    r"|brazil|s[aã]o\s+paulo|rio\s+de\s+janeiro|brasilia"
+    r"|argentina|buenos\s+aires"
+    r"|chile|santiago"
+    r"|philippines|manila|cebu"
+    r"|indonesia|jakarta|bali"
+    r"|malaysia|kuala\s+lumpur"
+    r"|vietnam|ho\s+chi\s+minh|hanoi"
+    r"|thailand|bangkok"
+    r"|japan|tokyo|osaka"
+    r"|south\s+korea|seoul"
+    r"|china|beijing|shanghai|shenzhen"
+    r"|taiwan|taipei"
+    r"|israel|tel\s+aviv"
+    r"|sweden|stockholm|gothenburg"
+    r"|norway|oslo"
+    r"|denmark|copenhagen"
+    r"|finland|helsinki"
+    r"|switzerland|zurich|geneva"
+    r"|austria|vienna"
+    r"|poland|warsaw|krakow"
+    r"|czech|prague"
+    r"|new\s+zealand|auckland|wellington"
+    r"|south\s+africa|cape\s+town|johannesburg"
+    r"|kenya|nairobi"
+    r"|nigeria|lagos"
+    r"|egypt|cairo"
+    r"|uae|dubai|abu\s+dhabi"
+    r"|saudi\s+arabia|riyadh)\b",
+    re.IGNORECASE,
+)
+
 # If non-US location, check if they offer visa support → REVIEW instead of SKIP
 VISA_OFFER = re.compile(
     r"\b(visa\s+sponsorship|will\s+sponsor|sponsoring\s+visa|OPT|CPT|f[\s\-]?1\s+visa|"

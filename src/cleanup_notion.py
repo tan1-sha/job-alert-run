@@ -14,7 +14,7 @@ from src.notion_writer import _archive, _fetch_all_pages, _get_client
 from src.config import (
     EXPERIENCE_SKIP, ENTRY_LEVEL_SIGNAL, DESCRIPTION_SENIORITY_SIGNALS,
     TITLE_SENIORITY_BLOCK, TITLE_ROLE_BLOCK, TITLE_REQUIRED, NOTION_DB_ID,
-    STAFFING_AGENCY_BLOCK,
+    STAFFING_AGENCY_BLOCK, NON_US_LOCATION, USA_LOCATION, VISA_OFFER,
 )
 from src.fetcher import _fetch_description_from_ats_url
 
@@ -77,27 +77,42 @@ def should_archive(page: dict) -> tuple[bool, str]:
     if TITLE_SENIORITY_BLOCK.search(title):
         return True, "title: too senior"
 
-    # ── 3. Stored description ────────────────────────────────────────────────
+    # ── 3. Location check ────────────────────────────────────────────────────
+    link_prop = props.get("Link", {})
+    url = link_prop.get("url") or ""
+    location_arr = props.get("Location", {}).get("rich_text", [])
+    location = location_arr[0]["plain_text"] if location_arr else ""
+    if location and not USA_LOCATION.search(location):
+        if not VISA_OFFER.search(location):
+            return True, f"non-US location: {location}"
+
+    # ── 4. Stored description ────────────────────────────────────────────────
     desc_arr = props.get("Job Description", {}).get("rich_text", [])
     stored_desc = desc_arr[0]["plain_text"] if desc_arr else ""
     archive, reason = _check_description(stored_desc)
     if archive:
         return True, reason
 
-    # ── 4. Fetch live description from job URL if stored is empty ─────────────
+    # ── 5. Fetch live description from job URL if stored is empty ─────────────
     if not stored_desc.strip():
-        link_prop = props.get("Link", {})
-        url = link_prop.get("url") or ""
         if url:
             live_desc = _fetch_description_from_ats_url(url)
             if live_desc.strip():
-                # Write back so future runs don't re-fetch
                 _update_description(page["id"], live_desc)
                 archive, reason = _check_description(live_desc)
                 if archive:
                     return True, reason
 
-    return False, ""
+    # ── 6. Non-US signals in description (catches "Remote" from foreign companies)
+    desc_arr = props.get("Job Description", {}).get("rich_text", [])
+    any_desc = desc_arr[0]["plain_text"] if desc_arr else ""
+    full_text = f"{title} {location} {any_desc}"
+    non_us = NON_US_LOCATION.search(full_text)
+    if non_us and not USA_LOCATION.search(location or ""):
+        if not VISA_OFFER.search(full_text):
+            return True, f"non-US signals: {non_us.group()}"
+
+    return False, ""  # keep
 
 
 def run():
