@@ -22,8 +22,8 @@ SEARCH_TERMS = [
     "ux ui designer",
 ]
 
-# National US search — open to any US location
-LOCATIONS = ["United States", "Remote"]
+# US + Bengaluru searches
+LOCATIONS = ["United States", "Remote", "Bengaluru, India"]
 
 RESULTS_PER_QUERY = 25   # per jobspy source per term
 HOURS_OLD         = 5    # only grab jobs posted in last 5h (run every 4h + buffer)
@@ -223,14 +223,40 @@ TITLE_ROLE_BLOCK = re.compile(
 # ── Title: founding designer → REVIEW (often wants 5+ yrs despite startup framing)
 TITLE_FOUNDING = re.compile(r"\bfounding\s+(product\s+|ux\s+|ui\s+)?designer\b", re.IGNORECASE)
 
+# ── Tier-1 companies with Bengaluru presence → allowed for India jobs ─────────
+INDIA_TIER1_COMPANIES = {
+    # Global tech with strong Bengaluru offices
+    "google", "microsoft", "amazon", "apple", "meta", "samsung", "intel",
+    "cisco", "oracle", "sap", "adobe", "linkedin", "paypal", "walmart",
+    "atlassian", "servicenow", "salesforce", "workday", "vmware", "ibm",
+    "accenture", "thoughtworks",
+    # Indian unicorns / top product-design companies
+    "flipkart", "swiggy", "zomato", "meesho", "cred", "phonepe", "razorpay",
+    "freshworks", "zoho", "browserstack", "postman", "chargebee", "groww",
+    "zepto", "bigbasket", "navi", "jupiter", "slice", "dunzo", "unacademy",
+    "makemytrip", "cleartrip", "ola", "rapido", "licious", "cult.fit",
+    "wakefit", "udaan", "mmt", "namma yatri",
+}
+
+# ── Location: India/Bengaluru presence check ──────────────────────────────────
+INDIA_LOCATION = re.compile(
+    r"\b(india|bengaluru|bangalore|karnataka)\b",
+    re.IGNORECASE,
+)
+
 # ── Location: US presence check ───────────────────────────────────────────────
 USA_LOCATION = re.compile(
-    r"\b(united\s+states|usa|u\.s\.a?\.?|remote|"
+    r"\b(united\s+states|usa|\bus\b|u\.s\.a?\.?|remote|anywhere\s+in\s+the\s+us|"
     r"san\s+francisco|new\s+york|seattle|austin|chicago|boston|los\s+angeles|"
     r"denver|atlanta|miami|portland|nashville|dallas|washington\s+dc|"
+    r"minneapolis|philadelphia|phoenix|san\s+diego|las\s+vegas|detroit|"
+    r"pittsburgh|charlotte|raleigh|salt\s+lake|indianapolis|columbus|"
     r"SF|NYC|LA|DC|"
     r"california|new\s+york\s+state|texas|washington\s+state|illinois|"
-    r"\b(CA|NY|TX|WA|IL|MA|CO|GA|FL|OR|NC|VA|PA|OH|MI|MN|AZ|TN|MD|DC)\b)\b",
+    # All 50 US state abbreviations
+    r"\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|"
+    r"MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|"
+    r"SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b)\b",
     re.IGNORECASE,
 )
 
