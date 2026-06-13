@@ -306,7 +306,9 @@ NON_US_LOCATION = re.compile(
     r"|nigeria|lagos"
     r"|egypt|cairo"
     r"|uae|dubai|abu\s+dhabi"
-    r"|saudi\s+arabia|riyadh)\b",
+    r"|saudi\s+arabia|riyadh"
+    r"|malta|cyprus|greece|athens|lisbon|portugal|romania|bucharest"
+    r"|europe|european)\b",
     re.IGNORECASE,
 )
 
