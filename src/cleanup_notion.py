@@ -6,6 +6,7 @@ One-shot Notion cleanup — with live URL description fetching.
 Run: python -m src.cleanup_notion
 """
 import logging
+import re
 import sys
 import time
 
@@ -85,6 +86,10 @@ def should_archive(page: dict) -> tuple[bool, str]:
     if location and not USA_LOCATION.search(location):
         if not VISA_OFFER.search(location):
             return True, f"non-US location: {location}"
+    non_us_in_loc = NON_US_LOCATION.search(location)
+    if non_us_in_loc:
+        if not VISA_OFFER.search(location):
+            return True, f"non-US location signal: {non_us_in_loc.group()}"
 
     # ── 4. Stored description ────────────────────────────────────────────────
     desc_arr = props.get("Job Description", {}).get("rich_text", [])
@@ -107,8 +112,10 @@ def should_archive(page: dict) -> tuple[bool, str]:
     desc_arr = props.get("Job Description", {}).get("rich_text", [])
     any_desc = desc_arr[0]["plain_text"] if desc_arr else ""
     full_text = f"{title} {location} {any_desc}"
+    is_remote_only = bool(re.match(r"^\s*remote\s*$", location, re.IGNORECASE))
+    is_confirmed_us = bool(USA_LOCATION.search(location or "") and not is_remote_only)
     non_us = NON_US_LOCATION.search(full_text)
-    if non_us and not USA_LOCATION.search(location or ""):
+    if non_us and not is_confirmed_us:
         if not VISA_OFFER.search(full_text):
             return True, f"non-US signals: {non_us.group()}"
 

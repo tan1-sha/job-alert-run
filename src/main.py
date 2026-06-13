@@ -76,10 +76,10 @@ def run() -> None:
 
         if bucket == "STRONG":
             telegram_notify.send_strong(job, reason)
-            notion_writer.add_row(job, bucket, reason)
+            notion_writer.add_row(job, bucket)
         elif bucket == "REVIEW":
             telegram_notify.send_review(job, reason)
-            notion_writer.add_row(job, bucket, reason)
+            notion_writer.add_row(job, bucket)
 
     # ── Step 6: persist updated cache ─────────────────────────────────────────
     log.info("results → STRONG: %d  REVIEW: %d  SKIP: %d", *counts.values())

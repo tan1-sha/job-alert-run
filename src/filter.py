@@ -43,20 +43,42 @@ def classify(job: dict) -> tuple[Bucket, str]:
     if config.TITLE_SENIORITY_BLOCK.search(title):
         return "SKIP", "too senior (senior/staff/principal/lead/director/manager)"
 
-    # ── 4. Location: must be USA or explicitly offering visa ──────────────────
-    # Bug fix: empty location skipped check entirely — now always validate.
-    # Also checks full_text for non-US country names (catches "Remote" jobs
-    # posted by non-US companies where location field says only "Remote").
-    non_us_in_text = config.NON_US_LOCATION.search(full_text)
-    if location and not config.USA_LOCATION.search(location):
-        if config.VISA_OFFER.search(full_text):
-            return "REVIEW", f"non-US location but offers visa/OPT support: {location}"
-        return "SKIP", f"non-US location, no visa mention: {location}"
-    if non_us_in_text and not config.USA_LOCATION.search(location or ""):
-        # Description mentions a foreign country and location isn't confirmed US
-        if config.VISA_OFFER.search(full_text):
-            return "REVIEW", f"non-US signals in description: {non_us_in_text.group()}"
-        return "SKIP", f"non-US signals in description: {non_us_in_text.group()}"
+    # ── 4. Location check ─────────────────────────────────────────────────────
+    is_india       = config.INDIA_LOCATION.search(location)
+    is_us          = config.USA_LOCATION.search(location)
+    # Bare "Remote" matches USA_LOCATION but isn't geographically confirmed US —
+    # treat as ambiguous so we still check the description for country signals.
+    is_remote_only = bool(re.match(r"^\s*remote\s*$", location, re.IGNORECASE))
+    is_confirmed_us = bool(is_us and not is_remote_only)
+
+    if is_india:
+        # India path: Bengaluru tier-1 only, no US visa checks needed
+        if company not in config.INDIA_TIER1_COMPANIES:
+            return "SKIP", f"India job, not tier-1 company: {job['company']}"
+        # Fall through to experience/seniority checks
+    else:
+        non_us_in_location = config.NON_US_LOCATION.search(location)
+        non_us_in_text = config.NON_US_LOCATION.search(full_text)
+        if location and not is_us:
+            # Explicit non-US location
+            if config.VISA_OFFER.search(full_text):
+                return "REVIEW", f"non-US location but offers visa/OPT support: {location}"
+            return "SKIP", f"non-US location, no visa mention: {location}"
+        # Location field has non-US signal even though it also matched US (e.g. "Remote - UK")
+        if non_us_in_location:
+            if config.VISA_OFFER.search(full_text):
+                return "REVIEW", f"non-US/non-India signal in location: {non_us_in_location.group()}"
+            return "SKIP", f"non-US location signal: {non_us_in_location.group()}"
+        if non_us_in_text and not is_confirmed_us:
+            # Description/title mentions a foreign country — fires on Remote jobs too
+            if config.INDIA_LOCATION.search(non_us_in_text.group()):
+                # Remote job whose description mentions India → tier-1 gate
+                if company not in config.INDIA_TIER1_COMPANIES:
+                    return "SKIP", f"India remote job, not tier-1 company: {job['company']}"
+            elif config.VISA_OFFER.search(full_text):
+                return "REVIEW", f"non-US/non-India signals in description: {non_us_in_text.group()}"
+            else:
+                return "SKIP", f"non-US/non-India signals in description: {non_us_in_text.group()}"
 
     # ── 5. Description hard-outs (citizenship/clearance/1099) ─────────────────
     for pat in config.HARD_OUT_PATTERNS:
@@ -83,10 +105,11 @@ def classify(job: dict) -> tuple[Bucket, str]:
         # No description fetched — could be any level. Flag to review manually.
         return "REVIEW", "no description available — verify experience level manually"
 
-    # ── 7. Soft sponsorship flags → REVIEW ────────────────────────────────────
-    for pat in config.REVIEW_PATTERNS:
-        if pat.search(full_text):
-            return "REVIEW", f"ambiguous sponsorship language: {pat.pattern[:60]}"
+    # ── 7. Soft sponsorship flags → REVIEW (US jobs only) ────────────────────
+    if not is_india:
+        for pat in config.REVIEW_PATTERNS:
+            if pat.search(full_text):
+                return "REVIEW", f"ambiguous sponsorship language: {pat.pattern[:60]}"
 
     # ── 8. Founding designer → REVIEW (often expects senior despite startup framing)
     if config.TITLE_FOUNDING.search(title):

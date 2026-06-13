@@ -102,9 +102,8 @@ def _archive(page_id: str) -> None:
         log.warning("notion: archive failed for %s: %s", page_id, exc)
 
 
-def add_row(job: dict, bucket: str, reason: str) -> None:
+def add_row(job: dict, bucket: str) -> None:
     location = job["location"][:200]
-    why = f"[{bucket}] {reason}"[:200]
     date_str = datetime.now(timezone.utc).date().isoformat()
 
     # Strip HTML from description before storing; Notion rich_text max = 2000 chars
@@ -133,9 +132,6 @@ def add_row(job: dict, bucket: str, reason: str) -> None:
         # E-verify intentionally omitted — fill manually when researching company
         "Bucket": {
             "select": {"name": bucket}
-        },
-        "Why flagged": {
-            "rich_text": [{"text": {"content": why}}]
         },
         "Date found": {
             "date": {"start": date_str}

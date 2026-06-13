@@ -92,7 +92,8 @@ def fetch_jobspy() -> list[dict]:
 
 # ── Adzuna ────────────────────────────────────────────────────────────────────
 
-ADZUNA_BASE = "https://api.adzuna.com/v1/api/jobs/us/search/1"
+ADZUNA_BASE       = "https://api.adzuna.com/v1/api/jobs/us/search/1"
+ADZUNA_INDIA_BASE = "https://api.adzuna.com/v1/api/jobs/in/search/1"
 
 def fetch_adzuna() -> list[dict]:
     results: list[dict] = []
@@ -124,6 +125,40 @@ def fetch_adzuna() -> list[dict]:
             time.sleep(1)
         except Exception as exc:
             log.warning("adzuna error for %r: %s", term, exc)
+    return results
+
+
+def fetch_adzuna_india() -> list[dict]:
+    results: list[dict] = []
+    for term in config.SEARCH_TERMS:
+        try:
+            resp = requests.get(
+                ADZUNA_INDIA_BASE,
+                params={
+                    "app_id": config.ADZUNA_APP_ID,
+                    "app_key": config.ADZUNA_APP_KEY,
+                    "results_per_page": 50,
+                    "what": term,
+                    "where": "Bengaluru",
+                    "full_time": 1,
+                    "sort_by": "date",
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            for job in resp.json().get("results", []):
+                results.append(_normalize(
+                    title=job.get("title", ""),
+                    company=job.get("company", {}).get("display_name", ""),
+                    location=job.get("location", {}).get("display_name", ""),
+                    description=job.get("description", ""),
+                    url=job.get("redirect_url", ""),
+                    source="adzuna/india",
+                    date_posted=job.get("created", ""),
+                ))
+            time.sleep(1)
+        except Exception as exc:
+            log.warning("adzuna/india error for %r: %s", term, exc)
     return results
 
 
@@ -297,6 +332,9 @@ def fetch_all() -> list[dict]:
 
     log.info("fetching adzuna…")
     jobs.extend(fetch_adzuna())
+
+    log.info("fetching adzuna india (bengaluru)…")
+    jobs.extend(fetch_adzuna_india())
 
     log.info("fetching greenhouse ATS feeds…")
     for slug in config.GREENHOUSE_SLUGS:

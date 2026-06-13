@@ -138,8 +138,8 @@ EXPERIENCE_SKIP = re.compile(
     r"(?<![\-–\d])([2-9]|\d{2,})\+\s*years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b"
     # "3 years of experience" (no +, bare number ≥ 3)
     r"|(?<![\-–\d])([3-9]|\d{2,})\s+years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b"
-    # "2 years of [design/ux] experience" — must have qualifier to avoid "2 years ago"
-    r"|(?<![\-–\d])2\s+years?\s+(of\s+)(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)\s*(design\s+)?experience\b"
+    # "2 years of experience", "2 years experience", "2 years' experience" (all forms)
+    r"|(?<![\-–\d])2\s+years?'?\s+((of\s+)(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry\s*)?(design\s+)?)?experience\b"
     # "2–3 years", "3–5 years" etc. — lower bound ≥ 2
     r"|(?<![\-–\d])([2-9]|\d{2,})\s*[\-–]\s*\d+\s*years?\s*(of\s+)?" + _EXP_QUAL + r"experience\b"
     # "minimum/at least 2 years" or more
@@ -183,7 +183,7 @@ STAFFING_AGENCY_BLOCK = re.compile(
 # Requires explicit qualifier — plain "designer" alone is too broad.
 # "visual" removed — visual designer roles are not relevant to candidate's target.
 TITLE_REQUIRED = re.compile(
-    r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|content|growth|ai|associate)\s+designer\b"
+    r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|growth|ai|associate)\s+designer\b"
     r"|\b(ux|ui|product|experience|interaction)\s+design\b"
     r"|\bdesign\s+systems?\s+designer\b",
     re.IGNORECASE,
@@ -194,8 +194,8 @@ TITLE_REQUIRED = re.compile(
 # both match regardless of what comes between the seniority word and "designer".
 # Does NOT block plain "Product Designer" (no modifier = open level, often entry-OK).
 TITLE_SENIORITY_BLOCK = re.compile(
-    # Title begins with seniority modifier (covers "Senior X Designer", "Staff UX Y Designer", etc.)
-    r"^\s*(senior|sr\.?|staff|principal|lead|manager)\b"
+    # Title begins with seniority modifier — use lookahead to handle "Sr." (period breaks \b)
+    r"^\s*(senior|sr\.?|staff|principal|lead|manager|director)(?=[\s.,/\-]|$)"
     # "Senior Associate", "Senior Specialist" etc. anywhere in title (e.g. "Experience Design Senior Associate")
     r"|\bsenior\s+(associate|specialist|consultant|advisor|strategist)\b"
     # VP — both abbreviated and spelled out
@@ -203,7 +203,9 @@ TITLE_SENIORITY_BLOCK = re.compile(
     r"|\b(vice\s+president|vp)\b.*design"
     # Management / leadership roles
     r"|\b(head\s+of[\w\s]*design|director[\w\s]*design|design\s+director|design\s+manager|design\s+lead)\b"
-    r"|\b(ux|product|ui|experience)\s+(design\s+)?(director|manager|lead|head)\b",
+    r"|\b(ux|product|ui|experience)\s+(design\s+)?(director|manager|lead|head)\b"
+    # Manager/director anywhere in title (catches "UX Manager", "Design Director", "Director of Product Design")
+    r"|\b(manager|director)\b",
     re.IGNORECASE,
 )
 
@@ -213,10 +215,15 @@ TITLE_ROLE_BLOCK = re.compile(
     r"\bvisual\s+(\w+\s+)?designer\b"
     r"|\b(motion|graphic|brand|industrial|fashion|textile|apparel|packaging|interior|"
     r"landscape|game|jewelry|accessory|accessories|photonics|technical|freelance|presentation|"
-    r"powerpoint|instructional|curriculum|web\s+graphic|performance\s+creative|slide)\s+designer\b"
-    r"|\bdesigner\s*([-–]\s*)?(handbag|apparel|sleep|knit|bottom|dress|outerwear|baby|kids\s+bedding|accessory|accessories)\b"
+    r"powerpoint|instructional|curriculum|web\s+graphic|performance\s+creative|slide|"
+    r"automotive|vehicle|furniture|hardware|floral|lighting|material|surface)\s+designer\b"
+    r"|\bdesigner\s*([-–]\s*)?(handbag|apparel|sleep|knit|bottom|dress|outerwear|baby|kids\s+bedding|accessory|accessories|automotive|vehicle|furniture)\b"
+    r"|\bcontent\s+(experience\s+|product\s+|ux\s+|ui\s+|design\s+)?designer\b"
     r"|\bdesigner\s+advocate\b"
-    r"|\bdesign\s+advocate\b",
+    r"|\bdesign\s+advocate\b"
+    # Academic / teaching roles
+    r"|\b(professor|assistant\s+professor|associate\s+professor|adjunct|lecturer|instructor)\b"
+    r"|\b(teaching|faculty|academic)\b",
     re.IGNORECASE,
 )
 
