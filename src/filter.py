@@ -51,6 +51,9 @@ def classify(job: dict) -> tuple[Bucket, str]:
     is_remote_only = bool(re.match(r"^\s*remote\s*$", location, re.IGNORECASE))
     is_confirmed_us = bool(is_us and not is_remote_only)
 
+    if not location.strip():
+        return "REVIEW", "empty location — verify geography manually"
+
     if is_india:
         # India path: Bengaluru tier-1 only, no US visa checks needed
         if company not in config.INDIA_TIER1_COMPANIES:
@@ -111,9 +114,9 @@ def classify(job: dict) -> tuple[Bucket, str]:
             if pat.search(full_text):
                 return "REVIEW", f"ambiguous sponsorship language: {pat.pattern[:60]}"
 
-    # ── 8. Founding designer → REVIEW (often expects senior despite startup framing)
+    # ── 8. Founding designer → SKIP (almost always expects 5+ yrs despite startup framing)
     if config.TITLE_FOUNDING.search(title):
-        return "REVIEW", "founding designer — verify experience level manually"
+        return "SKIP", "founding designer — typically expects senior-level experience"
 
     # ── 9. Passed all filters → STRONG ────────────────────────────────────────
     if company in config.PRIORITY_COMPANIES:

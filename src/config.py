@@ -99,6 +99,9 @@ HARD_OUT_PATTERNS = [
         r"\b1099\b",
         r"independent\s+contractor",
         r"contract.only",
+        r"\d+[\s\-]month\s+contract",
+        r"\b(contract(ual)?\s+(basis|role|position|only|work)|contract\s+to\s+hire)\b",
+        r"\bhiring\s+for\s+(one\s+of\s+)?our\s+client",
         r"staffing\s+agenc(y|ies)",
         r"must\s+be\s+(a\s+)?citizen\s+or\s+permanent\s+resident",
         r"(citizen|permanent\s+resident)\s+required",
@@ -204,8 +207,8 @@ TITLE_SENIORITY_BLOCK = re.compile(
     # Management / leadership roles
     r"|\b(head\s+of[\w\s]*design|director[\w\s]*design|design\s+director|design\s+manager|design\s+lead)\b"
     r"|\b(ux|product|ui|experience)\s+(design\s+)?(director|manager|lead|head)\b"
-    # Manager/director anywhere in title (catches "UX Manager", "Design Director", "Director of Product Design")
-    r"|\b(manager|director)\b",
+    # Manager/director/VP anywhere in title
+    r"|\b(manager|director|vice\s+president)\b",
     re.IGNORECASE,
 )
 
