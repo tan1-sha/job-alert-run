@@ -208,7 +208,9 @@ TITLE_SENIORITY_BLOCK = re.compile(
     r"|\b(head\s+of[\w\s]*design|director[\w\s]*design|design\s+director|design\s+manager|design\s+lead)\b"
     r"|\b(ux|product|ui|experience)\s+(design\s+)?(director|manager|lead|head)\b"
     # Manager/director/VP anywhere in title
-    r"|\b(manager|director|vice\s+president)\b",
+    r"|\b(manager|director|vice\s+president)\b"
+    # Mid-level explicitly stated — not entry-level
+    r"|\bmid[\s\-]level\b",
     re.IGNORECASE,
 )
 
@@ -313,6 +315,19 @@ NON_US_LOCATION = re.compile(
     r"|malta|cyprus|greece|athens|lisbon|portugal|romania|bucharest"
     r"|europe|european)\b",
     re.IGNORECASE,
+)
+
+# Non-US timezone abbreviations in description — signals non-US employer on "Remote" listings
+NON_US_TIMEZONE = re.compile(
+    r"\b(AEST|AEDT|NZST|NZDT|CET|CEST|BST|IST|SGT|HKT|JST|KST|MYT|PHT|WIB|GMT[+-][1-9])\b",
+    re.IGNORECASE,
+)
+
+# Non-USD currency signals in description — flags non-US employers
+NON_USD_CURRENCY = re.compile(
+    r"\b(AUD|CAD|GBP|EUR|SGD|NZD|INR)\b"
+    r"|[£€₹]"
+    r"|\bA\$|\bC\$|\bNZ\$",
 )
 
 # If non-US location, check if they offer visa support → REVIEW instead of SKIP

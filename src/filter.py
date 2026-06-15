@@ -6,12 +6,14 @@ Bucket = str  # "STRONG" | "REVIEW" | "SKIP"
 
 _HTML_TAG = re.compile(r"<[^>]+>")
 _HTML_ENTITY = re.compile(r"&[a-z]+;|&#\d+;", re.IGNORECASE)
+_MD_ESCAPE = re.compile(r"\\([+*#\-()\[\]!.`{}|<>_])")
 
 
 def _clean(text: str) -> str:
-    """Strip HTML tags and entities so regex matches plain text."""
+    """Strip HTML, entities, and markdown escapes so regex matches plain text."""
     text = _HTML_TAG.sub(" ", text)
     text = _HTML_ENTITY.sub(" ", text)
+    text = _MD_ESCAPE.sub(r"\1", text)   # \+ → +, \* → *, etc.
     return text
 
 
@@ -82,6 +84,15 @@ def classify(job: dict) -> tuple[Bucket, str]:
                 return "REVIEW", f"non-US/non-India signals in description: {non_us_in_text.group()}"
             else:
                 return "SKIP", f"non-US/non-India signals in description: {non_us_in_text.group()}"
+        # Non-US currency or timezone in description → likely non-US employer posting "Remote"
+        if not is_confirmed_us:
+            tz_m = config.NON_US_TIMEZONE.search(description)
+            fx_m = config.NON_USD_CURRENCY.search(description)
+            signal = tz_m or fx_m
+            if signal:
+                if config.VISA_OFFER.search(full_text):
+                    return "REVIEW", f"non-US timezone/currency in description: {signal.group()}"
+                return "SKIP", f"non-US timezone/currency in description: {signal.group()}"
 
     # ── 5. Description hard-outs (citizenship/clearance/1099) ─────────────────
     for pat in config.HARD_OUT_PATTERNS:
