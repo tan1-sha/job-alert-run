@@ -45,6 +45,12 @@ def classify(job: dict) -> tuple[Bucket, str]:
     if config.TITLE_SENIORITY_BLOCK.search(title):
         return "SKIP", "too senior (senior/staff/principal/lead/director/manager)"
 
+    # ── 3a. Founding designer → SKIP (almost always expects 5+ yrs despite startup framing)
+    # Checked early, before location/sponsorship — those can return REVIEW first and let a
+    # founding-designer role slip through to Telegram if checked later in the pipeline.
+    if config.TITLE_FOUNDING.search(title):
+        return "SKIP", "founding designer — typically expects senior-level experience"
+
     # ── 3b. Non-Latin script in description → posting not written for US/India audience
     non_latin_count = len(config.NON_LATIN_SCRIPT.findall(description))
     if non_latin_count >= 15:
@@ -111,7 +117,8 @@ def classify(job: dict) -> tuple[Bucket, str]:
     if description.strip():
         entry_level = config.ENTRY_LEVEL_SIGNAL.search(description)
         if not entry_level:
-            m = config.EXPERIENCE_SKIP.search(description)
+            desc_for_exp = config.COMPANY_AGE_MENTION.sub(" ", description)
+            m = config.EXPERIENCE_SKIP.search(desc_for_exp)
             if m:
                 snippet = description[max(0, m.start()-15):m.end()+15].strip()
                 return "SKIP", f"experience req too high: «{snippet[:80]}»"
@@ -129,10 +136,6 @@ def classify(job: dict) -> tuple[Bucket, str]:
         for pat in config.REVIEW_PATTERNS:
             if pat.search(full_text):
                 return "REVIEW", f"ambiguous sponsorship language: {pat.pattern[:60]}"
-
-    # ── 8. Founding designer → SKIP (almost always expects 5+ yrs despite startup framing)
-    if config.TITLE_FOUNDING.search(title):
-        return "SKIP", "founding designer — typically expects senior-level experience"
 
     # ── 9. Passed all filters → STRONG ────────────────────────────────────────
     if company in config.PRIORITY_COMPANIES:

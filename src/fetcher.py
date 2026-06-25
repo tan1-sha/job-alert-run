@@ -1,6 +1,8 @@
 import hashlib
 import logging
+import re
 import time
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import Any
 
@@ -9,6 +11,8 @@ import requests
 from src import config
 
 log = logging.getLogger(__name__)
+
+_BROWSER_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 
 def _job_id(company: str, title: str, url: str) -> str:
@@ -322,6 +326,152 @@ def enrich_descriptions(jobs: list[dict]) -> list[dict]:
     return jobs
 
 
+# ── RemoteOK ──────────────────────────────────────────────────────────────────
+
+def fetch_remoteok() -> list[dict]:
+    """RemoteOK's public JSON API, filtered to the design tag. First array element is
+    an API-terms object, not a job — skip rows without an id."""
+    try:
+        resp = requests.get(
+            "https://remoteok.com/api",
+            params={"tags": "design"},
+            headers=_BROWSER_HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        jobs = []
+        for job in resp.json():
+            if not job.get("id"):
+                continue
+            jobs.append(_normalize(
+                title=job.get("position", ""),
+                company=job.get("company", ""),
+                location=job.get("location", "") or "Remote",
+                description=job.get("description", ""),
+                url=job.get("url", ""),
+                source="remoteok",
+                date_posted=job.get("date", ""),
+            ))
+        return jobs
+    except Exception as exc:
+        log.warning("remoteok error: %s", exc)
+        return []
+
+
+# ── Working Nomads ────────────────────────────────────────────────────────────
+
+def fetch_working_nomads() -> list[dict]:
+    """Working Nomads public JSON API, filtered client-side to the Design category."""
+    try:
+        resp = requests.get(
+            "https://www.workingnomads.com/api/exposed_jobs/",
+            headers=_BROWSER_HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        jobs = []
+        for job in resp.json():
+            if job.get("category_name") != "Design":
+                continue
+            jobs.append(_normalize(
+                title=job.get("title", ""),
+                company=job.get("company_name", ""),
+                location=job.get("location", "") or "Remote",
+                description=job.get("description", ""),
+                url=job.get("url", ""),
+                source="workingnomads",
+                date_posted=job.get("pub_date", ""),
+            ))
+        return jobs
+    except Exception as exc:
+        log.warning("workingnomads error: %s", exc)
+        return []
+
+
+# ── We Work Remotely (design category RSS) ───────────────────────────────────
+
+def fetch_wwr_design() -> list[dict]:
+    """We Work Remotely's Design-category RSS feed. Title format is 'Company: Position'."""
+    try:
+        resp = requests.get(
+            "https://weworkremotely.com/categories/remote-design-jobs.rss",
+            headers=_BROWSER_HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        root = ET.fromstring(resp.content)
+        jobs = []
+        for item in root.findall(".//item"):
+            raw_title = (item.findtext("title") or "").strip()
+            company, _, position = raw_title.partition(": ")
+            if not position:
+                company, position = "", raw_title
+            jobs.append(_normalize(
+                title=position.strip(),
+                company=company.strip(),
+                location=(item.findtext("region") or "").strip() or "Remote",
+                description=item.findtext("description") or "",
+                url=item.findtext("link") or "",
+                source="weworkremotely",
+                date_posted=item.findtext("pubDate") or "",
+            ))
+        return jobs
+    except Exception as exc:
+        log.warning("weworkremotely error: %s", exc)
+        return []
+
+
+# ── Simplify New-Grad Positions (GitHub) ──────────────────────────────────────
+
+_SIMPLIFY_README = (
+    "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md"
+)
+_SIMPLIFY_ROW = re.compile(r"<tr>\s*(.*?)\s*</tr>", re.DOTALL)
+_SIMPLIFY_CELL = re.compile(r"<td[^>]*>(.*?)</td>", re.DOTALL)
+_SIMPLIFY_HREF = re.compile(r'href="([^"]+)"')
+
+
+def fetch_simplify_newgrad() -> list[dict]:
+    """Simplify's New-Grad-Positions GitHub list — mostly SWE roles, but has occasional
+    real UX/Product Designer entries. Pre-filtered to design titles here (not in filter.py)
+    since the table has thousands of rows and most are irrelevant."""
+    try:
+        resp = requests.get(_SIMPLIFY_README, headers=_BROWSER_HEADERS, timeout=15)
+        resp.raise_for_status()
+        jobs = []
+        for row in _SIMPLIFY_ROW.findall(resp.text):
+            if "🔒" in row:  # application closed
+                continue
+            cells = _SIMPLIFY_CELL.findall(row)
+            if len(cells) < 4:
+                continue
+            company_cell, title_cell, location_cell, apply_cell = cells[0], cells[1], cells[2], cells[3]
+            title = _clean_html(title_cell)
+            if not config.TITLE_REQUIRED.search(title):
+                continue
+            company = _clean_html(company_cell)
+            location = _clean_html(location_cell)
+            hrefs = _SIMPLIFY_HREF.findall(apply_cell) or _SIMPLIFY_HREF.findall(company_cell)
+            url = hrefs[0] if hrefs else ""
+            jobs.append(_normalize(
+                title=title,
+                company=company,
+                location=location,
+                description="",
+                url=url,
+                source="simplify/new-grad",
+            ))
+        return jobs
+    except Exception as exc:
+        log.warning("simplify new-grad error: %s", exc)
+        return []
+
+
+def _clean_html(text: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 # ── Orchestrator ──────────────────────────────────────────────────────────────
 
 def fetch_all() -> list[dict]:
@@ -350,6 +500,18 @@ def fetch_all() -> list[dict]:
     for slug in config.ASHBY_SLUGS:
         jobs.extend(fetch_ashby(slug))
         time.sleep(0.3)
+
+    log.info("fetching remoteok (design)…")
+    jobs.extend(fetch_remoteok())
+
+    log.info("fetching working nomads (design)…")
+    jobs.extend(fetch_working_nomads())
+
+    log.info("fetching we work remotely (design)…")
+    jobs.extend(fetch_wwr_design())
+
+    log.info("fetching simplify new-grad list…")
+    jobs.extend(fetch_simplify_newgrad())
 
     # Dedup within batch: by URL-based id first, then by content fingerprint.
     # Fingerprint catches same job appearing on multiple boards (LinkedIn + Greenhouse etc).

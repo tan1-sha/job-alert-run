@@ -100,6 +100,8 @@ HARD_OUT_PATTERNS = [
         r"independent\s+contractor",
         r"contract.only",
         r"\d+[\s\-]month\s+contract",
+        r"\d+[\s\-]month\s+(project|engagement|assignment)\b",
+        r"project[\s\-]based\s+(position|role)\b",
         r"\b(contract(ual)?\s+(basis|role|position|only|work)|contract\s+to\s+hire)\b",
         r"\bhiring\s+for\s+(one\s+of\s+)?our\s+client",
         r"staffing\s+agenc(y|ies)",
@@ -134,21 +136,29 @@ ENTRY_LEVEL_SIGNAL = re.compile(
 
 # 2+ years minimum required → too senior for entry-level new grad, SKIP
 # (?<![\-–\d]) prevents matching "3" in "1-3 years" (word-boundary fires on trailing digit)
-_EXP_QUAL = r"(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry)?\s*(design\s+)?"
+# Qualifier-word-agnostic on purpose — real JDs phrase this as "4 years of interaction
+# design experience", "5+ years of overall software development experience", or just a bare
+# "7 - 10 Years" header with no "experience" word at all. Matching on the year count alone
+# (lower bound ≥ 2) catches all of these; false positives (vesting/degree/tenure mentions)
+# are excluded via the negative lookahead instead of trying to whitelist every qualifier.
+# "Founded 10 years ago", "in business for 15 years" etc. mention company age, not a
+# requirement — stripped out of the description copy before EXPERIENCE_SKIP runs (see filter.py).
+COMPANY_AGE_MENTION = re.compile(
+    r"\b(founded|established|in\s+business(\s+for)?)\b[^.]{0,40}?\d+\+?\s*years?\b",
+    re.IGNORECASE,
+)
+
+_NOT_EXPERIENCE = r"(?!\s*(?:ago|old|of\s+age|later|degree|vesting|cliff|warranty|in\s+business|history))"
 
 EXPERIENCE_SKIP = re.compile(
-    # "2+ years of experience" or "3+ years of design experience" etc.
-    r"(?<![\-–\d])([2-9]|\d{2,})\+\s*years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b"
-    # "3 years of experience" (no +, bare number ≥ 3)
-    r"|(?<![\-–\d])([3-9]|\d{2,})\s+years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b"
-    # "2 years of experience", "2 years experience", "2 years' experience" (all forms)
-    r"|(?<![\-–\d])2\s+years?'?\s+((of\s+)(ux|ui|product|design|professional|work|relevant|full[\s\-]time|industry\s*)?(design\s+)?)?experience\b"
-    # "2–3 years", "3–5 years" etc. — lower bound ≥ 2
-    r"|(?<![\-–\d])([2-9]|\d{2,})\s*[\-–]\s*\d+\s*years?\s*(of\s+)?" + _EXP_QUAL + r"experience\b"
+    # Bare/explicit year count ≥ 2, with or without "+", with or without a range upper bound,
+    # with or without a trailing "experience" word — "7 - 10 Years", "5+ years", "4 years of
+    # interaction design experience" all match on the leading number alone.
+    r"(?<![\-–\d])([2-9]|\d{2,})\s*\+?\s*(?:[\-–]\s*\d{1,2}\s*)?\+?\s*years?\b" + _NOT_EXPERIENCE +
     # "minimum/at least 2 years" or more
     r"|\b(minimum|at\s+least)\s+(of\s+)?([2-9]|\d{2,})\s*years?\b"
     # Spelled-out numbers ≥ two — including "or more" variant e.g. "three or more years"
-    r"|\b(two|three|four|five|six|seven|eight|nine|ten)(\s+or\s+more)?\s+years?\s+(of\s+)?" + _EXP_QUAL + r"experience\b",
+    r"|\b(two|three|four|five|six|seven|eight|nine|ten)(\s+or\s+more)?\s*years?\b" + _NOT_EXPERIENCE,
     re.IGNORECASE,
 )
 
@@ -367,8 +377,11 @@ NON_LATIN_SCRIPT = re.compile(
 
 # If non-US location, check if they offer visa support → REVIEW instead of SKIP
 VISA_OFFER = re.compile(
+    # "relocation package" deliberately excluded — standard intl-hiring perk, says nothing
+    # about US visa/OPT sponsorship specifically, and was flooding REVIEW (→ Telegram) with
+    # plain UK/EU jobs that happened to mention relocation assistance for local hires.
     r"\b(visa\s+sponsorship|will\s+sponsor|sponsoring\s+visa|OPT|CPT|f[\s\-]?1\s+visa|"
-    r"h[\s\-]?1[\s\-]?b\s+sponsor|work\s+visa\s+provided|relocation\s+package)\b",
+    r"h[\s\-]?1[\s\-]?b\s+sponsor|work\s+visa\s+provided|us\s+relocation)\b",
     re.IGNORECASE,
 )
 
