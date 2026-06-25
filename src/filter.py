@@ -56,6 +56,36 @@ def classify(job: dict) -> tuple[Bucket, str]:
     if non_latin_count >= 15:
         return "SKIP", f"description in non-English script ({non_latin_count} non-Latin chars) — not US/India"
 
+    # ── 5. Description hard-outs (citizenship/clearance/1099) ─────────────────
+    # Checked before location: an empty/ambiguous location used to short-circuit straight
+    # to REVIEW here, which meant a job with a hard-out (or a senior/over-experienced
+    # requirement below) never got evaluated against those signals at all — see step 6.
+    for pat in config.HARD_OUT_PATTERNS:
+        if pat.search(full_text):
+            return "SKIP", f"hard-out: {pat.pattern[:60]}"
+
+    # ── 6. Experience year gates ──────────────────────────────────────────────
+    # If description explicitly says entry-level / new grad → trust it, bypass year check.
+    # Otherwise: any 2+ year requirement → SKIP.
+    # Also catches qualitative seniority language (no year count) → REVIEW.
+    # Deliberately runs before the location check (step 4) — a job with no/ambiguous
+    # location info shouldn't get a free pass past an obvious "5-8+ years, Senior
+    # Product Designer" requirement just because geography couldn't be confirmed yet.
+    desc_missing = not description.strip()
+    if not desc_missing:
+        entry_level = config.ENTRY_LEVEL_SIGNAL.search(description)
+        if not entry_level:
+            desc_for_exp = config.COMPANY_AGE_MENTION.sub(" ", description)
+            m = config.EXPERIENCE_SKIP.search(desc_for_exp)
+            if m:
+                snippet = description[max(0, m.start()-15):m.end()+15].strip()
+                return "SKIP", f"experience req too high: «{snippet[:80]}»"
+            # No explicit year count — check for qualitative seniority signals
+            s = config.DESCRIPTION_SENIORITY_SIGNALS.search(description)
+            if s:
+                snippet = description[max(0, s.start()-10):s.end()+10].strip()
+                return "REVIEW", f"seniority language in description — verify level: «{snippet[:80]}»"
+
     # ── 4. Location check ─────────────────────────────────────────────────────
     is_india       = config.INDIA_LOCATION.search(location)
     is_us          = config.USA_LOCATION.search(location)
@@ -65,6 +95,8 @@ def classify(job: dict) -> tuple[Bucket, str]:
     is_confirmed_us = bool(is_us and not is_remote_only)
 
     if not location.strip():
+        if not description.strip():
+            return "REVIEW", "no description and empty location — verify manually"
         return "REVIEW", "empty location — verify geography manually"
 
     if is_india:
@@ -105,37 +137,16 @@ def classify(job: dict) -> tuple[Bucket, str]:
                     return "REVIEW", f"non-US timezone/currency in description: {signal.group()}"
                 return "SKIP", f"non-US timezone/currency in description: {signal.group()}"
 
-    # ── 5. Description hard-outs (citizenship/clearance/1099) ─────────────────
-    for pat in config.HARD_OUT_PATTERNS:
-        if pat.search(full_text):
-            return "SKIP", f"hard-out: {pat.pattern[:60]}"
-
-    # ── 6. Experience year gates ──────────────────────────────────────────────
-    # If description explicitly says entry-level / new grad → trust it, bypass year check.
-    # Otherwise: any 2+ year requirement → SKIP.
-    # Also catches qualitative seniority language (no year count) → REVIEW.
-    if description.strip():
-        entry_level = config.ENTRY_LEVEL_SIGNAL.search(description)
-        if not entry_level:
-            desc_for_exp = config.COMPANY_AGE_MENTION.sub(" ", description)
-            m = config.EXPERIENCE_SKIP.search(desc_for_exp)
-            if m:
-                snippet = description[max(0, m.start()-15):m.end()+15].strip()
-                return "SKIP", f"experience req too high: «{snippet[:80]}»"
-            # No explicit year count — check for qualitative seniority signals
-            s = config.DESCRIPTION_SENIORITY_SIGNALS.search(description)
-            if s:
-                snippet = description[max(0, s.start()-10):s.end()+10].strip()
-                return "REVIEW", f"seniority language in description — verify level: «{snippet[:80]}»"
-    else:
-        # No description fetched — could be any level. Flag to review manually.
-        return "REVIEW", "no description available — verify experience level manually"
-
     # ── 7. Soft sponsorship flags → REVIEW (US jobs only) ────────────────────
     if not is_india:
         for pat in config.REVIEW_PATTERNS:
             if pat.search(full_text):
                 return "REVIEW", f"ambiguous sponsorship language: {pat.pattern[:60]}"
+
+    # ── 8. No description was ever fetched → can't verify experience, flag manually
+    # (rather than auto-STRONG just because nothing disqualified it).
+    if desc_missing:
+        return "REVIEW", "no description available — verify experience level manually"
 
     # ── 9. Passed all filters → STRONG ────────────────────────────────────────
     if company in config.PRIORITY_COMPANIES:
