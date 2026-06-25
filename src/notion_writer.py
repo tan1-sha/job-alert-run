@@ -106,12 +106,15 @@ def add_row(job: dict, bucket: str) -> None:
     location = job["location"][:200]
     date_str = datetime.now(timezone.utc).date().isoformat()
 
-    # Strip HTML from description before storing; Notion rich_text max = 2000 chars
+    # Strip HTML from description before storing. Notion caps each rich_text
+    # *object* at 2000 chars, but a property can hold up to 100 objects —
+    # chunk into multiple objects instead of truncating to fit the full text.
     import re as _re
     raw_desc = job.get("description", "") or ""
     plain_desc = _re.sub(r"<[^>]+>", " ", raw_desc)
     plain_desc = _re.sub(r"&[a-z]+;|&#\d+;", " ", plain_desc, flags=_re.IGNORECASE)
-    plain_desc = " ".join(plain_desc.split())[:2000]  # collapse whitespace, cap
+    plain_desc = " ".join(plain_desc.split())[:200_000]  # 100 objects * 2000 chars
+    desc_chunks = [plain_desc[i:i + 2000] for i in range(0, len(plain_desc), 2000)]
 
     props: dict = {
         "Job title": {
@@ -140,7 +143,7 @@ def add_row(job: dict, bucket: str) -> None:
             "checkbox": False
         },
         "Job Description": {
-            "rich_text": [{"text": {"content": plain_desc}}] if plain_desc else []
+            "rich_text": [{"text": {"content": c}} for c in desc_chunks]
         },
     }
 

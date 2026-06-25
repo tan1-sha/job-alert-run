@@ -45,6 +45,11 @@ def classify(job: dict) -> tuple[Bucket, str]:
     if config.TITLE_SENIORITY_BLOCK.search(title):
         return "SKIP", "too senior (senior/staff/principal/lead/director/manager)"
 
+    # ── 3b. Non-Latin script in description → posting not written for US/India audience
+    non_latin_count = len(config.NON_LATIN_SCRIPT.findall(description))
+    if non_latin_count >= 15:
+        return "SKIP", f"description in non-English script ({non_latin_count} non-Latin chars) — not US/India"
+
     # ── 4. Location check ─────────────────────────────────────────────────────
     is_india       = config.INDIA_LOCATION.search(location)
     is_us          = config.USA_LOCATION.search(location)

@@ -210,7 +210,9 @@ TITLE_SENIORITY_BLOCK = re.compile(
     # Manager/director/VP anywhere in title
     r"|\b(manager|director|vice\s+president)\b"
     # Mid-level explicitly stated — not entry-level
-    r"|\bmid[\s\-]level\b",
+    r"|\bmid[\s\-]level\b"
+    # "Sr"/"Sr." anywhere in title, not just leading (e.g. "Product Designer, Sr.")
+    r"|\bsr\.?\b",
     re.IGNORECASE,
 )
 
@@ -228,7 +230,17 @@ TITLE_ROLE_BLOCK = re.compile(
     r"|\bdesign\s+advocate\b"
     # Academic / teaching roles
     r"|\b(professor|assistant\s+professor|associate\s+professor|adjunct|lecturer|instructor)\b"
-    r"|\b(teaching|faculty|academic)\b",
+    r"|\b(teaching|faculty|academic)\b"
+    # Freelance / contract / gig work — anywhere in title, not just adjacent to "designer"
+    r"|\bfreelance(r)?\b"
+    r"|\bcontract(or)?\b"
+    r"|\bcontract\s+to\s+hire\b"
+    r"|\b(part[\s\-]time|gig|project[\s\-]based)\b"
+    # Internship / student roles
+    r"|\bintern(ship)?\b"
+    r"|\b(student\s+placement|co[\s\-]?op|apprentice(ship)?)\b"
+    # "Design Specialist" / generic specialist titles — not a product design role
+    r"|\b(design\s+)?specialist\b",
     re.IGNORECASE,
 )
 
@@ -313,6 +325,17 @@ NON_US_LOCATION = re.compile(
     r"|uae|dubai|abu\s+dhabi"
     r"|saudi\s+arabia|riyadh"
     r"|malta|cyprus|greece|athens|lisbon|portugal|romania|bucharest"
+    r"|estonia|latvia|lithuania|belarus|moldova"
+    r"|hungary|budapest|bulgaria|sofia|serbia|belgrade|croatia|zagreb"
+    r"|slovakia|bratislava|slovenia|ljubljana|bosnia|albania|kosovo|montenegro|macedonia"
+    r"|belgium|brussels|luxembourg|iceland|reykjavik"
+    r"|russia|moscow|saint\s+petersburg|kazakhstan|tbilisi|armenia|azerbaijan|baku"
+    r"|turkey|istanbul|ankara|ukraine|kyiv|kiev"
+    r"|pakistan|karachi|lahore|islamabad|bangladesh|dhaka|sri\s+lanka|colombo|nepal|kathmandu"
+    r"|hong\s+kong|macau|mongolia|cambodia|phnom\s+penh|laos|myanmar|brunei"
+    r"|qatar|doha|kuwait|bahrain|oman|muscat|amman|lebanon|beirut"
+    r"|morocco|casablanca|tunisia|algeria|ghana|accra|uganda|ethiopia|addis\s+ababa"
+    r"|costa\s+rica|panama|ecuador|quito|venezuela|caracas|uruguay|paraguay|bolivia"
     r"|europe|european)\b",
     re.IGNORECASE,
 )
@@ -328,6 +351,18 @@ NON_USD_CURRENCY = re.compile(
     r"\b(AUD|CAD|GBP|EUR|SGD|NZD|INR)\b"
     r"|[£€₹]"
     r"|\bA\$|\bC\$|\bNZ\$",
+)
+
+# Non-Latin script chars — CJK, Hangul, Cyrillic, Arabic, Devanagari, Thai, Greek.
+# Description written mostly in another language is a strong non-US/non-India signal
+# (English-language regex checks above can't catch what they can't read).
+NON_LATIN_SCRIPT = re.compile(
+    r"[一-鿿぀-ヿ가-힣"   # CJK, Hiragana/Katakana, Hangul
+    r"Ѐ-ӿ"                                # Cyrillic
+    r"؀-ۿ"                                # Arabic
+    r"ऀ-ॿ"                                # Devanagari
+    r"฀-๿"                                # Thai
+    r"Ͱ-Ͽ]"                               # Greek
 )
 
 # If non-US location, check if they offer visa support → REVIEW instead of SKIP

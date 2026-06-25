@@ -16,6 +16,7 @@ from src.config import (
     EXPERIENCE_SKIP, ENTRY_LEVEL_SIGNAL, DESCRIPTION_SENIORITY_SIGNALS,
     TITLE_SENIORITY_BLOCK, TITLE_ROLE_BLOCK, TITLE_REQUIRED, NOTION_DB_ID,
     STAFFING_AGENCY_BLOCK, NON_US_LOCATION, USA_LOCATION, VISA_OFFER,
+    NON_LATIN_SCRIPT,
 )
 from src.fetcher import _fetch_description_from_ats_url
 
@@ -41,14 +42,21 @@ def _check_description(description: str) -> tuple[bool, str]:
     return False, ""
 
 
+def _all_text(rich_text_arr: list) -> str:
+    """Join every rich_text object's plain_text — descriptions are stored as
+    multiple 2000-char chunks, not a single object."""
+    return "".join(o.get("plain_text", "") for o in rich_text_arr)
+
+
 def _update_description(page_id: str, desc: str) -> None:
     """Write fetched description back to the Notion row for future runs."""
     plain = _clean(desc)
-    plain = " ".join(plain.split())[:2000]
+    plain = " ".join(plain.split())[:200_000]
+    chunks = [plain[i:i + 2000] for i in range(0, len(plain), 2000)]
     try:
         _get_client().pages.update(
             page_id,
-            properties={"Job Description": {"rich_text": [{"text": {"content": plain}}]}},
+            properties={"Job Description": {"rich_text": [{"text": {"content": c}} for c in chunks]}},
         )
     except Exception as exc:
         log.debug("could not update description for %s: %s", page_id, exc)
@@ -93,7 +101,7 @@ def should_archive(page: dict) -> tuple[bool, str]:
 
     # ── 4. Stored description ────────────────────────────────────────────────
     desc_arr = props.get("Job Description", {}).get("rich_text", [])
-    stored_desc = desc_arr[0]["plain_text"] if desc_arr else ""
+    stored_desc = _all_text(desc_arr)
     archive, reason = _check_description(stored_desc)
     if archive:
         return True, reason
@@ -107,11 +115,15 @@ def should_archive(page: dict) -> tuple[bool, str]:
                 archive, reason = _check_description(live_desc)
                 if archive:
                     return True, reason
+                stored_desc = live_desc
 
-    # ── 6. Non-US signals in description (catches "Remote" from foreign companies)
-    desc_arr = props.get("Job Description", {}).get("rich_text", [])
-    any_desc = desc_arr[0]["plain_text"] if desc_arr else ""
-    full_text = f"{title} {location} {any_desc}"
+    # ── 6. Non-Latin script in description → not written for US/India audience
+    non_latin_count = len(NON_LATIN_SCRIPT.findall(_clean(stored_desc)))
+    if non_latin_count >= 15:
+        return True, f"description in non-English script ({non_latin_count} non-Latin chars)"
+
+    # ── 7. Non-US signals in description (catches "Remote" from foreign companies)
+    full_text = f"{title} {location} {stored_desc}"
     is_remote_only = bool(re.match(r"^\s*remote\s*$", location, re.IGNORECASE))
     is_confirmed_us = bool(USA_LOCATION.search(location or "") and not is_remote_only)
     non_us = NON_US_LOCATION.search(full_text)
@@ -146,7 +158,7 @@ def run():
         else:
             # Check if description is still empty after fetch attempt
             desc_arr = props.get("Job Description", {}).get("rich_text", [])
-            if not (desc_arr[0]["plain_text"] if desc_arr else "").strip():
+            if not _all_text(desc_arr).strip():
                 no_desc += 1
                 log.debug("no-desc  %r @ %r", title, company)
             kept += 1
