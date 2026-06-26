@@ -196,9 +196,9 @@ STAFFING_AGENCY_BLOCK = re.compile(
 # Requires explicit qualifier — plain "designer" alone is too broad.
 # "visual" removed — visual designer roles are not relevant to candidate's target.
 TITLE_REQUIRED = re.compile(
-    r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|growth|ai|associate)\s+designer\b"
+    r"\b(product|ux|ui|user[\s\-]?experience|interaction|experience|growth|ai|associate)\s+designers?\b"
     r"|\b(ux|ui|product|experience|interaction)\s+design\b"
-    r"|\bdesign\s+systems?\s+designer\b",
+    r"|\bdesign\s+systems?\s+designers?\b",
     re.IGNORECASE,
 )
 
@@ -207,8 +207,10 @@ TITLE_REQUIRED = re.compile(
 # both match regardless of what comes between the seniority word and "designer".
 # Does NOT block plain "Product Designer" (no modifier = open level, often entry-OK).
 TITLE_SENIORITY_BLOCK = re.compile(
-    # Title begins with seniority modifier — use lookahead to handle "Sr." (period breaks \b)
-    r"^\s*(senior|sr\.?|staff|principal|lead|manager|director)(?=[\s.,/\-]|$)"
+    # Seniority modifier anywhere in title — not anchored to start, since real postings
+    # often prefix titles with work-mode/location tags (e.g. "(Hybrid) Senior UX Designer",
+    # "Senior UX/UI Designer | Remote") which break a leading-anchor match.
+    r"\b(senior|sr\.?|staff|principal|lead)\b(?=[\s.,/\-]|$)"
     # "Senior Associate", "Senior Specialist" etc. anywhere in title (e.g. "Experience Design Senior Associate")
     r"|\bsenior\s+(associate|specialist|consultant|advisor|strategist)\b"
     # VP — both abbreviated and spelled out

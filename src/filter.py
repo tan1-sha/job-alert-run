@@ -33,6 +33,13 @@ def classify(job: dict) -> tuple[Bucket, str]:
     if config.STAFFING_AGENCY_BLOCK.search(company):
         return "SKIP", f"staffing/contract agency: {company}"
 
+    # ── 0a. Structured job-type field (JobSpy/Adzuna) → contract/temp/intern SKIP
+    # Catches postings where "contract" only appears as metadata, never as a phrase
+    # the HARD_OUT_PATTERNS regexes below are tuned to match (e.g. bare "Contract" type).
+    job_type = (job.get("job_type") or "").lower()
+    if any(t in job_type for t in ("contract", "temp", "intern", "parttime", "part_time", "part-time")):
+        return "SKIP", f"job_type field: {job_type}"
+
     # ── 1. Wrong role type (non-digital / irrelevant designer) ───────────────
     if config.TITLE_ROLE_BLOCK.search(title):
         return "SKIP", "wrong role type (visual/motion/graphic/brand/accessory/non-digital)"
@@ -97,6 +104,17 @@ def classify(job: dict) -> tuple[Bucket, str]:
     if not location.strip():
         if not description.strip():
             return "REVIEW", "no description and empty location — verify manually"
+        # Location field blank, but description may still state a country —
+        # check full_text before giving up to REVIEW (e.g. "This role is Remote (UK)").
+        non_us_in_text = config.NON_US_LOCATION.search(full_text)
+        if non_us_in_text:
+            if config.INDIA_LOCATION.search(non_us_in_text.group()):
+                if company not in config.INDIA_TIER1_COMPANIES:
+                    return "SKIP", f"India job (from description), not tier-1 company: {job['company']}"
+            elif config.VISA_OFFER.search(full_text):
+                return "REVIEW", f"non-US/non-India signal in description, empty location: {non_us_in_text.group()}"
+            else:
+                return "SKIP", f"non-US/non-India signal in description, empty location: {non_us_in_text.group()}"
         return "REVIEW", "empty location — verify geography manually"
 
     if is_india:

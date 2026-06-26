@@ -36,6 +36,7 @@ def _normalize(
     url: str,
     source: str,
     date_posted: str | None = None,
+    job_type: str | None = None,
 ) -> dict[str, Any]:
     c, t = company.strip(), title.strip()
     return {
@@ -48,6 +49,7 @@ def _normalize(
         "url": url.strip(),
         "source": source,
         "date_posted": date_posted or datetime.now(timezone.utc).isoformat(),
+        "job_type": (job_type or "").strip().lower(),
     }
 
 
@@ -82,6 +84,7 @@ def fetch_jobspy() -> list[dict]:
                         url=str(row.get("job_url", "")),
                         source=f"jobspy/{row.get('site', 'unknown')}",
                         date_posted=str(row.get("date_posted", "")),
+                        job_type=str(row.get("job_type", "") or ""),
                     )
                     # Store direct ATS URL separately for description enrichment
                     direct = str(row.get("job_url_direct", "") or "")
@@ -125,6 +128,7 @@ def fetch_adzuna() -> list[dict]:
                     url=job.get("redirect_url", ""),
                     source="adzuna",
                     date_posted=job.get("created", ""),
+                    job_type=job.get("contract_type", "") or job.get("contract_time", ""),
                 ))
             time.sleep(1)
         except Exception as exc:
