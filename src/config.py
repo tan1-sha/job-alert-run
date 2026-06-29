@@ -387,5 +387,29 @@ VISA_OFFER = re.compile(
     re.IGNORECASE,
 )
 
+# Negation words that, found shortly before a VISA_OFFER hit, flip its meaning —
+# e.g. "unable to offer visa sponsorship" / "we do not sponsor visas" should NOT
+# count as an offer. Without this, standard non-sponsorship disclaimers on
+# UK/EU job posts were matching VISA_OFFER and demoting clear SKIPs to REVIEW.
+VISA_NEGATION = re.compile(
+    r"\b(no|not|n't|cannot|can't|unable|without|never|doesn't|don't|won't)\b",
+    re.IGNORECASE,
+)
+
+_VISA_NEGATION_WINDOW = 40  # chars to look back from a VISA_OFFER match for negation
+
+
+def visa_offer_found(text: str) -> re.Match | None:
+    """Like VISA_OFFER.search, but returns None if the match is negated
+    (e.g. "unable to offer visa sponsorship")."""
+    m = VISA_OFFER.search(text)
+    if not m:
+        return None
+    window_start = max(0, m.start() - _VISA_NEGATION_WINDOW)
+    preceding = text[window_start:m.start()]
+    if VISA_NEGATION.search(preceding):
+        return None
+    return m
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 SEEN_JOBS_PATH = "data/seen_jobs.json"

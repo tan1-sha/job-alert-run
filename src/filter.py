@@ -111,7 +111,7 @@ def classify(job: dict) -> tuple[Bucket, str]:
             if config.INDIA_LOCATION.search(non_us_in_text.group()):
                 if company not in config.INDIA_TIER1_COMPANIES:
                     return "SKIP", f"India job (from description), not tier-1 company: {job['company']}"
-            elif config.VISA_OFFER.search(full_text):
+            elif config.visa_offer_found(full_text):
                 return "REVIEW", f"non-US/non-India signal in description, empty location: {non_us_in_text.group()}"
             else:
                 return "SKIP", f"non-US/non-India signal in description, empty location: {non_us_in_text.group()}"
@@ -127,12 +127,12 @@ def classify(job: dict) -> tuple[Bucket, str]:
         non_us_in_text = config.NON_US_LOCATION.search(full_text)
         if location and not is_us:
             # Explicit non-US location
-            if config.VISA_OFFER.search(full_text):
+            if config.visa_offer_found(full_text):
                 return "REVIEW", f"non-US location but offers visa/OPT support: {location}"
             return "SKIP", f"non-US location, no visa mention: {location}"
         # Location field has non-US signal even though it also matched US (e.g. "Remote - UK")
         if non_us_in_location:
-            if config.VISA_OFFER.search(full_text):
+            if config.visa_offer_found(full_text):
                 return "REVIEW", f"non-US/non-India signal in location: {non_us_in_location.group()}"
             return "SKIP", f"non-US location signal: {non_us_in_location.group()}"
         if non_us_in_text and not is_confirmed_us:
@@ -141,7 +141,7 @@ def classify(job: dict) -> tuple[Bucket, str]:
                 # Remote job whose description mentions India → tier-1 gate
                 if company not in config.INDIA_TIER1_COMPANIES:
                     return "SKIP", f"India remote job, not tier-1 company: {job['company']}"
-            elif config.VISA_OFFER.search(full_text):
+            elif config.visa_offer_found(full_text):
                 return "REVIEW", f"non-US/non-India signals in description: {non_us_in_text.group()}"
             else:
                 return "SKIP", f"non-US/non-India signals in description: {non_us_in_text.group()}"
@@ -151,7 +151,7 @@ def classify(job: dict) -> tuple[Bucket, str]:
             fx_m = config.NON_USD_CURRENCY.search(description)
             signal = tz_m or fx_m
             if signal:
-                if config.VISA_OFFER.search(full_text):
+                if config.visa_offer_found(full_text):
                     return "REVIEW", f"non-US timezone/currency in description: {signal.group()}"
                 return "SKIP", f"non-US timezone/currency in description: {signal.group()}"
 

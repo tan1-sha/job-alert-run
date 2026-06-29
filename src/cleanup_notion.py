@@ -15,8 +15,8 @@ from src.notion_writer import _archive, _fetch_all_pages, _get_client
 from src.config import (
     EXPERIENCE_SKIP, ENTRY_LEVEL_SIGNAL, DESCRIPTION_SENIORITY_SIGNALS,
     TITLE_SENIORITY_BLOCK, TITLE_ROLE_BLOCK, TITLE_REQUIRED, NOTION_DB_ID,
-    STAFFING_AGENCY_BLOCK, NON_US_LOCATION, USA_LOCATION, VISA_OFFER,
-    NON_LATIN_SCRIPT,
+    STAFFING_AGENCY_BLOCK, NON_US_LOCATION, USA_LOCATION,
+    NON_LATIN_SCRIPT, visa_offer_found,
 )
 from src.fetcher import _fetch_description_from_ats_url
 
@@ -92,11 +92,11 @@ def should_archive(page: dict) -> tuple[bool, str]:
     location_arr = props.get("Location", {}).get("rich_text", [])
     location = location_arr[0]["plain_text"] if location_arr else ""
     if location and not USA_LOCATION.search(location):
-        if not VISA_OFFER.search(location):
+        if not visa_offer_found(location):
             return True, f"non-US location: {location}"
     non_us_in_loc = NON_US_LOCATION.search(location)
     if non_us_in_loc:
-        if not VISA_OFFER.search(location):
+        if not visa_offer_found(location):
             return True, f"non-US location signal: {non_us_in_loc.group()}"
 
     # ── 4. Stored description ────────────────────────────────────────────────
@@ -128,7 +128,7 @@ def should_archive(page: dict) -> tuple[bool, str]:
     is_confirmed_us = bool(USA_LOCATION.search(location or "") and not is_remote_only)
     non_us = NON_US_LOCATION.search(full_text)
     if non_us and not is_confirmed_us:
-        if not VISA_OFFER.search(full_text):
+        if not visa_offer_found(full_text):
             return True, f"non-US signals: {non_us.group()}"
 
     return False, ""  # keep
