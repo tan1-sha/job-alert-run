@@ -102,7 +102,7 @@ def _archive(page_id: str) -> None:
         log.warning("notion: archive failed for %s: %s", page_id, exc)
 
 
-def add_row(job: dict, bucket: str) -> None:
+def add_row(job: dict, bucket: str, reason: str = "") -> None:
     location = job["location"][:200]
     date_str = datetime.now(timezone.utc).date().isoformat()
 
@@ -146,6 +146,12 @@ def add_row(job: dict, bucket: str) -> None:
             "rich_text": [{"text": {"content": c}} for c in desc_chunks]
         },
     }
+
+    # Filter reason (why STRONG/REVIEW) goes in Notes — only for REVIEW rows, since
+    # STRONG reasons are usually just "passed all filters" / "priority company", not
+    # something to review. Notes is otherwise unused by add_row, safe to set on create.
+    if bucket == "REVIEW" and reason:
+        props["Notes"] = {"rich_text": [{"text": {"content": reason[:2000]}}]}
 
     try:
         _get_client().pages.create(

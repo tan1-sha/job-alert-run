@@ -228,6 +228,22 @@ TITLE_SENIORITY_BLOCK = re.compile(
     re.IGNORECASE,
 )
 
+# ── Title: leveling codes (company-specific, generally unambiguous senior tiers) → SKIP
+TITLE_LEVEL_BLOCK = re.compile(
+    r"\bdesigner\s+(iii|iv|v|vi)\b"
+    r"|\b(l|ic)[5-9]\b"
+    r"|\blevel\s+[5-9]\b",
+    re.IGNORECASE,
+)
+
+# ── Title: leveling codes that are ambiguous (some companies use L3/IC3 for entry) → REVIEW
+TITLE_LEVEL_REVIEW = re.compile(
+    r"\bdesigner\s+ii\b"
+    r"|\b(l|ic)[3-4]\b"
+    r"|\blevel\s+[3-4]\b",
+    re.IGNORECASE,
+)
+
 # ── Title: wrong role type hard-out ───────────────────────────────────────────
 TITLE_ROLE_BLOCK = re.compile(
     # "visual [anything] designer" — visual designer, visual UX designer, visual product designer etc.
@@ -274,9 +290,10 @@ INDIA_TIER1_COMPANIES = {
     "wakefit", "udaan", "mmt", "namma yatri",
 }
 
-# ── Location: India/Bengaluru presence check ──────────────────────────────────
+# ── Location: India presence check (major tech-hub cities, tier-1 gated) ──────
 INDIA_LOCATION = re.compile(
-    r"\b(india|bengaluru|bangalore|karnataka)\b",
+    r"\b(india|bengaluru|bangalore|karnataka|mumbai|delhi|new\s+delhi|hyderabad|"
+    r"pune|chennai|gurgaon|gurugram|noida)\b",
     re.IGNORECASE,
 )
 
@@ -348,7 +365,18 @@ NON_US_LOCATION = re.compile(
     r"|qatar|doha|kuwait|bahrain|oman|muscat|amman|lebanon|beirut"
     r"|morocco|casablanca|tunisia|algeria|ghana|accra|uganda|ethiopia|addis\s+ababa"
     r"|costa\s+rica|panama|ecuador|quito|venezuela|caracas|uruguay|paraguay|bolivia"
-    r"|europe|european)\b",
+    r"|europe|european|emea|apac|latam)\b",
+    re.IGNORECASE,
+)
+
+# Ambiguous remote-scope tags — location field only (not full description text,
+# since "worldwide"/"global"/"international"/"anywhere" are common English words
+# that would false-positive-SKIP good US postings if scanned across free text).
+# Not a clear non-US signal like EMEA/APAC/LATAM — could be a US company hiring
+# worldwide — so this routes to REVIEW, not SKIP.
+AMBIGUOUS_REMOTE_SCOPE = re.compile(
+    r"\bremote\b.*\b(worldwide|global|international|anywhere)\b"
+    r"|\b(worldwide|global|international|anywhere)\b.*\bremote\b",
     re.IGNORECASE,
 )
 
@@ -401,13 +429,14 @@ _VISA_NEGATION_WINDOW = 40  # chars to look back from a VISA_OFFER match for neg
 
 def visa_offer_found(text: str) -> re.Match | None:
     """Like VISA_OFFER.search, but returns None if the match is negated
-    (e.g. "unable to offer visa sponsorship")."""
+    (e.g. "unable to offer visa sponsorship" or "visa sponsorship is not available")."""
     m = VISA_OFFER.search(text)
     if not m:
         return None
     window_start = max(0, m.start() - _VISA_NEGATION_WINDOW)
-    preceding = text[window_start:m.start()]
-    if VISA_NEGATION.search(preceding):
+    window_end = m.end() + _VISA_NEGATION_WINDOW
+    surrounding = text[window_start:m.start()] + text[m.end():window_end]
+    if VISA_NEGATION.search(surrounding):
         return None
     return m
 

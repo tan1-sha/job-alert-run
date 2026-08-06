@@ -52,6 +52,10 @@ def classify(job: dict) -> tuple[Bucket, str]:
     if config.TITLE_SENIORITY_BLOCK.search(title):
         return "SKIP", "too senior (senior/staff/principal/lead/director/manager)"
 
+    # ── 3c. Leveling-code seniority (L5/IC5/Designer III+, company-specific but generally senior)
+    if config.TITLE_LEVEL_BLOCK.search(title):
+        return "SKIP", "too senior (leveling code: L5+/IC5+/Designer III+)"
+
     # ── 3a. Founding designer → SKIP (almost always expects 5+ yrs despite startup framing)
     # Checked early, before location/sponsorship — those can return REVIEW first and let a
     # founding-designer role slip through to Telegram if checked later in the pipeline.
@@ -93,6 +97,11 @@ def classify(job: dict) -> tuple[Bucket, str]:
                 snippet = description[max(0, s.start()-10):s.end()+10].strip()
                 return "REVIEW", f"seniority language in description — verify level: «{snippet[:80]}»"
 
+    # ── 6b. Ambiguous leveling code in title (L3/L4/IC3/IC4/Designer II) — company-specific,
+    # can't tell if entry or mid without knowing the company's ladder → flag for manual check.
+    if config.TITLE_LEVEL_REVIEW.search(title):
+        return "REVIEW", "leveling code in title — verify seniority manually"
+
     # ── 4. Location check ─────────────────────────────────────────────────────
     is_india       = config.INDIA_LOCATION.search(location)
     is_us          = config.USA_LOCATION.search(location)
@@ -130,11 +139,16 @@ def classify(job: dict) -> tuple[Bucket, str]:
             if config.visa_offer_found(full_text):
                 return "REVIEW", f"non-US location but offers visa/OPT support: {location}"
             return "SKIP", f"non-US location, no visa mention: {location}"
-        # Location field has non-US signal even though it also matched US (e.g. "Remote - UK")
+        # Location field has non-US signal even though it also matched US (e.g. "Remote - UK",
+        # "Remote, EMEA"/"APAC"/"LATAM" — unambiguous non-US regions) → SKIP/REVIEW on visa offer
         if non_us_in_location:
             if config.visa_offer_found(full_text):
                 return "REVIEW", f"non-US/non-India signal in location: {non_us_in_location.group()}"
             return "SKIP", f"non-US location signal: {non_us_in_location.group()}"
+        # Vague remote-scope tag ("Remote - Worldwide/Global/International/Anywhere") — could be
+        # a US company hiring globally, could be entirely non-US. Can't tell → flag for manual check.
+        if config.AMBIGUOUS_REMOTE_SCOPE.search(location):
+            return "REVIEW", f"ambiguous remote scope in location — verify geography manually: {location}"
         if non_us_in_text and not is_confirmed_us:
             # Description/title mentions a foreign country — fires on Remote jobs too
             if config.INDIA_LOCATION.search(non_us_in_text.group()):

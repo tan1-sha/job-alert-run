@@ -147,7 +147,7 @@ def fetch_adzuna_india() -> list[dict]:
                     "app_key": config.ADZUNA_APP_KEY,
                     "results_per_page": 50,
                     "what": term,
-                    "where": "Bengaluru",
+                    "where": "India",
                     "full_time": 1,
                     "sort_by": "date",
                 },

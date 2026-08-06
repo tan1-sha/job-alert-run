@@ -14,9 +14,9 @@ from src.filter import _clean
 from src.notion_writer import _archive, _fetch_all_pages, _get_client
 from src.config import (
     EXPERIENCE_SKIP, ENTRY_LEVEL_SIGNAL, DESCRIPTION_SENIORITY_SIGNALS,
-    TITLE_SENIORITY_BLOCK, TITLE_ROLE_BLOCK, TITLE_REQUIRED, NOTION_DB_ID,
-    STAFFING_AGENCY_BLOCK, NON_US_LOCATION, USA_LOCATION,
-    NON_LATIN_SCRIPT, visa_offer_found,
+    TITLE_SENIORITY_BLOCK, TITLE_LEVEL_BLOCK, TITLE_ROLE_BLOCK, TITLE_REQUIRED,
+    NOTION_DB_ID, STAFFING_AGENCY_BLOCK, NON_US_LOCATION, INDIA_LOCATION,
+    INDIA_TIER1_COMPANIES, USA_LOCATION, NON_LATIN_SCRIPT, visa_offer_found,
 )
 from src.fetcher import _fetch_description_from_ats_url
 
@@ -85,19 +85,27 @@ def should_archive(page: dict) -> tuple[bool, str]:
         return True, "title: not a digital design role"
     if TITLE_SENIORITY_BLOCK.search(title):
         return True, "title: too senior"
+    if TITLE_LEVEL_BLOCK.search(title):
+        return True, "title: too senior (leveling code)"
 
     # ── 3. Location check ────────────────────────────────────────────────────
     link_prop = props.get("Link", {})
     url = link_prop.get("url") or ""
     location_arr = props.get("Location", {}).get("rich_text", [])
     location = location_arr[0]["plain_text"] if location_arr else ""
-    if location and not USA_LOCATION.search(location):
-        if not visa_offer_found(location):
-            return True, f"non-US location: {location}"
-    non_us_in_loc = NON_US_LOCATION.search(location)
-    if non_us_in_loc:
-        if not visa_offer_found(location):
-            return True, f"non-US location signal: {non_us_in_loc.group()}"
+
+    if INDIA_LOCATION.search(location):
+        # India path: tier-1 companies only, no US/visa checks — mirrors filter.classify()
+        if company.lower().strip() not in INDIA_TIER1_COMPANIES:
+            return True, f"India job, not tier-1 company: {company}"
+    else:
+        if location and not USA_LOCATION.search(location):
+            if not visa_offer_found(location):
+                return True, f"non-US location: {location}"
+        non_us_in_loc = NON_US_LOCATION.search(location)
+        if non_us_in_loc:
+            if not visa_offer_found(location):
+                return True, f"non-US location signal: {non_us_in_loc.group()}"
 
     # ── 4. Stored description ────────────────────────────────────────────────
     desc_arr = props.get("Job Description", {}).get("rich_text", [])
@@ -123,13 +131,16 @@ def should_archive(page: dict) -> tuple[bool, str]:
         return True, f"description in non-English script ({non_latin_count} non-Latin chars)"
 
     # ── 7. Non-US signals in description (catches "Remote" from foreign companies)
-    full_text = f"{title} {location} {stored_desc}"
-    is_remote_only = bool(re.match(r"^\s*remote\s*$", location, re.IGNORECASE))
-    is_confirmed_us = bool(USA_LOCATION.search(location or "") and not is_remote_only)
-    non_us = NON_US_LOCATION.search(full_text)
-    if non_us and not is_confirmed_us:
-        if not visa_offer_found(full_text):
-            return True, f"non-US signals: {non_us.group()}"
+    # Skip entirely for India rows — already vetted against INDIA_TIER1_COMPANIES in
+    # step 3, and "india"/"bengaluru" in full_text would otherwise re-trigger NON_US_LOCATION.
+    if not INDIA_LOCATION.search(location):
+        full_text = f"{title} {location} {stored_desc}"
+        is_remote_only = bool(re.match(r"^\s*remote\s*$", location, re.IGNORECASE))
+        is_confirmed_us = bool(USA_LOCATION.search(location or "") and not is_remote_only)
+        non_us = NON_US_LOCATION.search(full_text)
+        if non_us and not is_confirmed_us:
+            if not visa_offer_found(full_text):
+                return True, f"non-US signals: {non_us.group()}"
 
     return False, ""  # keep
 
